@@ -39,3 +39,9 @@ data/
 run/
 server/
 libs/
+
+# Local settings
+.claude/
+
+# Downloaded archives
+*.zip

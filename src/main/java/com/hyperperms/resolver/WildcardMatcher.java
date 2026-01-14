@@ -170,6 +170,7 @@ public final class WildcardMatcher {
 
         for (int i = parts.length - 1; i >= 0; i--) {
             String wildcard = buildWildcard(parts, i);
+            boolean isUniversal = wildcard.equals("*");
 
             // Check negated wildcard
             String negatedWildcard = "-" + wildcard;
@@ -178,7 +179,7 @@ public final class WildcardMatcher {
                 return new MatchResult(
                         val ? TriState.FALSE : TriState.TRUE,
                         negatedWildcard,
-                        MatchType.WILDCARD_NEGATION
+                        isUniversal ? MatchType.UNIVERSAL_NEGATION : MatchType.WILDCARD_NEGATION
                 );
             }
 
@@ -188,29 +189,9 @@ public final class WildcardMatcher {
                 return new MatchResult(
                         val ? TriState.TRUE : TriState.FALSE,
                         wildcard,
-                        MatchType.WILDCARD
+                        isUniversal ? MatchType.UNIVERSAL : MatchType.WILDCARD
                 );
             }
-        }
-
-        // 4. Check universal negation
-        if (values.containsKey("-*")) {
-            boolean val = values.get("-*");
-            return new MatchResult(
-                    val ? TriState.FALSE : TriState.TRUE,
-                    "-*",
-                    MatchType.UNIVERSAL_NEGATION
-            );
-        }
-
-        // 5. Check universal wildcard
-        if (values.containsKey("*")) {
-            boolean val = values.get("*");
-            return new MatchResult(
-                    val ? TriState.TRUE : TriState.FALSE,
-                    "*",
-                    MatchType.UNIVERSAL
-            );
         }
 
         return new MatchResult(TriState.UNDEFINED, null, MatchType.NONE);

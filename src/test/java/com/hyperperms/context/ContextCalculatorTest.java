@@ -4,8 +4,6 @@ import com.hyperperms.api.context.ContextSet;
 import com.hyperperms.context.calculators.GameModeContextCalculator;
 import com.hyperperms.context.calculators.ServerContextCalculator;
 import com.hyperperms.context.calculators.WorldContextCalculator;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -146,23 +144,23 @@ class ContextCalculatorTest {
         private final String world;
         private final String gameMode;
 
-        TestContextProvider(@Nullable String world, @Nullable String gameMode) {
+        TestContextProvider(String world, String gameMode) {
             this.world = world;
             this.gameMode = gameMode;
         }
 
         @Override
-        public @Nullable String getWorld(@NotNull UUID uuid) {
+        public String getWorld(UUID uuid) {
             return world;
         }
 
         @Override
-        public @Nullable String getGameMode(@NotNull UUID uuid) {
+        public String getGameMode(UUID uuid) {
             return gameMode;
         }
 
         @Override
-        public boolean isOnline(@NotNull UUID uuid) {
+        public boolean isOnline(UUID uuid) {
             return world != null;
         }
     }
