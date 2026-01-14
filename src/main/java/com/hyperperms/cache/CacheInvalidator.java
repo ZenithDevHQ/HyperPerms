@@ -146,6 +146,37 @@ public final class CacheInvalidator {
     }
 
     /**
+     * Invalidates a specific user's cache.
+     * Alias for {@link #invalidateUser(UUID)}.
+     *
+     * @param uuid the user's UUID
+     */
+    public void invalidate(@NotNull UUID uuid) {
+        cache.invalidate(uuid);
+    }
+
+    /**
+     * Invalidates all cached entries.
+     */
+    public void invalidateAll() {
+        cache.invalidateAll();
+        Logger.debug("Invalidated all cache entries");
+    }
+
+    /**
+     * Invalidates context-sensitive cache entries for a user.
+     * <p>
+     * This is called when a player's context changes (e.g., world change,
+     * game mode change) to ensure fresh permission resolution.
+     *
+     * @param uuid the user's UUID
+     */
+    public void invalidateContextCache(@NotNull UUID uuid) {
+        cache.invalidate(uuid);
+        Logger.debug("Invalidated context cache for user %s", uuid);
+    }
+
+    /**
      * Gets all users that belong to a group.
      *
      * @param groupName the group name
