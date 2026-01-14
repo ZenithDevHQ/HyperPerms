@@ -1,0 +1,61 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.5'
+}
+
+group = 'com.hyperperms'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Hytale Server API (provided at runtime)
+    compileOnly files('libs/HytaleServer.jar')
+
+    // JSON handling
+    implementation 'com.google.code.gson:gson:2.11.0'
+
+    // SQLite JDBC driver
+    implementation 'org.xerial:sqlite-jdbc:3.45.1.0'
+
+    // High-performance caching
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    // Null safety annotations
+    compileOnly 'org.jetbrains:annotations:24.1.0'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+shadowJar {
+    archiveClassifier.set('')
+
+    // Relocate dependencies to avoid conflicts
+    relocate 'com.google.gson', 'com.hyperperms.lib.gson'
+    relocate 'org.sqlite', 'com.hyperperms.lib.sqlite'
+    relocate 'com.github.benmanes.caffeine', 'com.hyperperms.lib.caffeine'
+
+    minimize()
+}
+
+test {
+    useJUnitPlatform()
+}
+
+build {
+    dependsOn shadowJar
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs.addAll(['-Xlint:all', '-Xlint:-processing'])
+}

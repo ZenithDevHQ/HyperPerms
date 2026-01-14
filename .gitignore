@@ -1,0 +1,41 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+out/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local configuration
+local.properties
+
+# Build outputs
+*.jar
+!libs/*.jar
+!gradle/wrapper/*.jar
+
+# Test data
+hyperperms-data/
+data/
+
+# Runtime
+run/
+server/
+libs/

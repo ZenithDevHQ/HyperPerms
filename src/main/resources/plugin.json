@@ -1,0 +1,11 @@
+{
+    "Id": "hyperperms",
+    "Name": "HyperPerms",
+    "Version": "1.0.0",
+    "Description": "A production-grade permissions management plugin for Hytale with full contextual permissions, wildcard support, timed permissions, and GUI management.",
+    "Authors": ["HyperPerms Team"],
+    "Main": "com.hyperperms.HyperPerms",
+    "ApiVersion": "1.0",
+    "Dependencies": [],
+    "SoftDependencies": []
+}

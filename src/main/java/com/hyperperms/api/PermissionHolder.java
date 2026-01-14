@@ -1,0 +1,185 @@
+package com.hyperperms.api;
+
+import com.hyperperms.api.context.ContextSet;
+import com.hyperperms.model.Node;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Represents an entity that can hold permissions.
+ * <p>
+ * This interface is implemented by both {@link com.hyperperms.model.User} and
+ * {@link com.hyperperms.model.Group}.
+ */
+public interface PermissionHolder {
+
+    /**
+     * Gets the unique identifier for this holder.
+     *
+     * @return the identifier (UUID string for users, name for groups)
+     */
+    @NotNull
+    String getIdentifier();
+
+    /**
+     * Gets the display-friendly name of this holder.
+     *
+     * @return the friendly name
+     */
+    @NotNull
+    String getFriendlyName();
+
+    /**
+     * Gets all permission nodes directly assigned to this holder.
+     * Does not include inherited permissions.
+     *
+     * @return an unmodifiable set of nodes
+     */
+    @NotNull
+    Set<Node> getNodes();
+
+    /**
+     * Gets all permission nodes that match the given contexts.
+     *
+     * @param contexts the contexts to match
+     * @return nodes that apply in the given context
+     */
+    @NotNull
+    Set<Node> getNodes(@NotNull ContextSet contexts);
+
+    /**
+     * Gets all permission nodes, optionally filtering out expired nodes.
+     *
+     * @param includeExpired whether to include expired nodes
+     * @return the set of nodes
+     */
+    @NotNull
+    Set<Node> getNodes(boolean includeExpired);
+
+    /**
+     * Checks if this holder has a specific node.
+     *
+     * @param node the node to check
+     * @return true if the exact node exists
+     */
+    boolean hasNode(@NotNull Node node);
+
+    /**
+     * Adds a node to this holder.
+     *
+     * @param node the node to add
+     * @return the result of the operation
+     */
+    @NotNull
+    DataMutateResult addNode(@NotNull Node node);
+
+    /**
+     * Removes a node from this holder.
+     *
+     * @param node the node to remove
+     * @return the result of the operation
+     */
+    @NotNull
+    DataMutateResult removeNode(@NotNull Node node);
+
+    /**
+     * Removes all nodes matching the given permission.
+     *
+     * @param permission the permission to match
+     * @return the result of the operation
+     */
+    @NotNull
+    DataMutateResult removeNode(@NotNull String permission);
+
+    /**
+     * Sets a node, replacing any existing node with the same permission and contexts.
+     *
+     * @param node the node to set
+     * @return the result of the operation
+     */
+    @NotNull
+    DataMutateResult setNode(@NotNull Node node);
+
+    /**
+     * Clears all nodes from this holder.
+     */
+    void clearNodes();
+
+    /**
+     * Clears all nodes in the given context.
+     *
+     * @param contexts the contexts to match
+     */
+    void clearNodes(@NotNull ContextSet contexts);
+
+    /**
+     * Gets the names of all groups this holder directly inherits from.
+     *
+     * @return the group names
+     */
+    @NotNull
+    Set<String> getInheritedGroups();
+
+    /**
+     * Gets the names of all groups this holder inherits from in the given context.
+     *
+     * @param contexts the contexts to match
+     * @return the group names
+     */
+    @NotNull
+    Set<String> getInheritedGroups(@NotNull ContextSet contexts);
+
+    /**
+     * Adds a group to inherit from.
+     *
+     * @param groupName the group name
+     * @return the result of the operation
+     */
+    @NotNull
+    DataMutateResult addGroup(@NotNull String groupName);
+
+    /**
+     * Removes a group inheritance.
+     *
+     * @param groupName the group name
+     * @return the result of the operation
+     */
+    @NotNull
+    DataMutateResult removeGroup(@NotNull String groupName);
+
+    /**
+     * Removes all expired nodes from this holder.
+     *
+     * @return the number of nodes removed
+     */
+    int cleanupExpired();
+
+    /**
+     * Result of a data mutation operation.
+     */
+    enum DataMutateResult {
+        /**
+         * The operation completed successfully.
+         */
+        SUCCESS,
+
+        /**
+         * The operation failed because the data already exists.
+         */
+        ALREADY_EXISTS,
+
+        /**
+         * The operation failed because the data does not exist.
+         */
+        DOES_NOT_EXIST,
+
+        /**
+         * The operation failed for an unspecified reason.
+         */
+        FAILURE
+    }
+}
