@@ -1,6 +1,5 @@
 package com.hyperperms;
 
-import com.hyperperms.platform.HytalePlatform;
 import com.hyperperms.util.Logger;
 
 import java.nio.file.Path;
@@ -35,7 +34,28 @@ import java.util.logging.Level;
  */
 public final class HyperPermsBootstrap {
 
+    private static HyperPerms instance;
+
     private HyperPermsBootstrap() {}
+
+    /**
+     * Gets the running HyperPerms instance.
+     *
+     * @return the instance, or null if not initialized
+     */
+    public static HyperPerms getInstance() {
+        return instance;
+    }
+
+    /**
+     * Sets the running HyperPerms instance.
+     * Should only be called by the platform plugin.
+     *
+     * @param hyperPerms the instance
+     */
+    public static void setInstance(HyperPerms hyperPerms) {
+        instance = hyperPerms;
+    }
 
     /**
      * Creates a new HyperPerms instance.

@@ -1,0 +1,9 @@
+{
+  "Group": "com.hyperperms",
+  "Name": "HyperPerms",
+  "Version": "1.1.0",
+  "Description": "A production-grade permissions management plugin for Hytale with full contextual permissions, wildcard support, and timed permissions.",
+  "Website": "https://github.com/hyperperms",
+  "Main": "com.hyperperms.platform.HyperPermsPlugin",
+  "ServerVersion": "*"
+}

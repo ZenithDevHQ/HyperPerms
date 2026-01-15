@@ -146,21 +146,4 @@ public final class Permissions {
      * Permission to list all tracks.
      */
     public static final String LIST_TRACKS = "hyperperms.command.listtracks";
-
-    // ==================== GUI Permissions ====================
-
-    /**
-     * Permission to use the GUI.
-     */
-    public static final String GUI = "hyperperms.gui";
-
-    /**
-     * Permission to use the user editor GUI.
-     */
-    public static final String GUI_USER = "hyperperms.gui.user";
-
-    /**
-     * Permission to use the group editor GUI.
-     */
-    public static final String GUI_GROUP = "hyperperms.gui.group";
 }

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.hyperperms'
-version = '1.0.4'
+version = '1.1.0'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -44,7 +44,11 @@ shadowJar {
     relocate 'org.sqlite', 'com.hyperperms.lib.sqlite'
     relocate 'com.github.benmanes.caffeine', 'com.hyperperms.lib.caffeine'
 
-    minimize()
+    // Minimize JAR but exclude Caffeine - its cache implementation classes
+    // (SSMS, SSLMS, SSLMSW, SILMS, etc.) are loaded via reflection
+    minimize {
+        exclude(dependency('com.github.ben-manes.caffeine:caffeine:.*'))
+    }
 }
 
 test {

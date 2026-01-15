@@ -1,6 +1,7 @@
 package com.hyperperms.platform;
 
 import com.hyperperms.HyperPerms;
+import com.hyperperms.HyperPermsBootstrap;
 import com.hyperperms.util.Logger;
 import com.hypixel.hytale.server.core.event.events.ecs.ChangeGameModeEvent;
 import com.hypixel.hytale.server.core.event.events.player.AddPlayerToWorldEvent;
@@ -44,6 +45,9 @@ public class HyperPermsPlugin extends JavaPlugin {
         // Initialize HyperPerms core
         hyperPerms = new HyperPerms(getDataDirectory(), java.util.logging.Logger.getLogger("HyperPerms"));
 
+        // Register the global instance for API access
+        HyperPermsBootstrap.setInstance(hyperPerms);
+
         // Create the platform adapter
         adapter = new HytaleAdapter(hyperPerms, this);
 
@@ -63,6 +67,9 @@ public class HyperPermsPlugin extends JavaPlugin {
 
         // Register as a permission provider with Hytale
         registerPermissionProvider();
+
+        // Register commands
+        registerCommands();
 
         // Register event listeners
         registerEventListeners();
@@ -86,6 +93,9 @@ public class HyperPermsPlugin extends JavaPlugin {
             hyperPerms.disable();
         }
 
+        // Clear the global instance
+        HyperPermsBootstrap.setInstance(null);
+
         // Clear the adapter
         if (adapter != null) {
             adapter.shutdown();
@@ -103,6 +113,19 @@ public class HyperPermsPlugin extends JavaPlugin {
             getLogger().at(Level.INFO).log("Registered HyperPerms as permission provider");
         } catch (Exception e) {
             getLogger().at(Level.SEVERE).withCause(e).log("Failed to register permission provider");
+        }
+    }
+
+    /**
+     * Registers HyperPerms commands with Hytale.
+     */
+    private void registerCommands() {
+        try {
+            HyperPermsCommand command = new HyperPermsCommand(hyperPerms);
+            getCommandRegistry().registerCommand(command);
+            getLogger().at(Level.INFO).log("Registered /hp command");
+        } catch (Exception e) {
+            getLogger().at(Level.SEVERE).withCause(e).log("Failed to register commands");
         }
     }
 
