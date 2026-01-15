@@ -29,6 +29,7 @@ public class HyperPermsPlugin extends JavaPlugin {
     private HyperPerms hyperPerms;
     private HyperPermsPermissionProvider permissionProvider;
     private HytaleAdapter adapter;
+    private com.hyperperms.chat.ChatListener chatListener;
 
     /**
      * Creates a new HyperPermsPlugin instance.
@@ -79,6 +80,15 @@ public class HyperPermsPlugin extends JavaPlugin {
 
     @Override
     protected void shutdown() {
+        // Unregister chat listener
+        if (chatListener != null) {
+            try {
+                chatListener.unregister(getEventRegistry());
+            } catch (Exception e) {
+                getLogger().at(Level.WARNING).withCause(e).log("Failed to unregister chat listener");
+            }
+        }
+
         // Unregister permission provider
         if (permissionProvider != null) {
             try {
@@ -145,7 +155,36 @@ public class HyperPermsPlugin extends JavaPlugin {
         // Game mode change event - update context cache
         getEventRegistry().registerGlobal(ChangeGameModeEvent.class, this::onGameModeChange);
 
+        // Register chat listener (if chat formatting is enabled)
+        registerChatListener();
+
         getLogger().at(Level.INFO).log("Registered event listeners");
+    }
+
+    /**
+     * Registers the chat listener for formatting player chat messages.
+     */
+    private void registerChatListener() {
+        try {
+            var chatManager = hyperPerms.getChatManager();
+            if (chatManager != null && chatManager.isEnabled()) {
+                chatListener = new com.hyperperms.chat.ChatListener(hyperPerms, chatManager);
+                
+                // Load config settings
+                var config = hyperPerms.getConfig();
+                if (config != null) {
+                    chatListener.setAllowPlayerColors(config.isAllowPlayerColors());
+                    chatListener.setColorPermission(config.getColorPermission());
+                }
+                
+                chatListener.register(getEventRegistry());
+                getLogger().at(Level.INFO).log("Chat formatting enabled");
+            } else {
+                getLogger().at(Level.INFO).log("Chat formatting is disabled in config");
+            }
+        } catch (Exception e) {
+            getLogger().at(Level.WARNING).withCause(e).log("Failed to register chat listener");
+        }
     }
 
     /**

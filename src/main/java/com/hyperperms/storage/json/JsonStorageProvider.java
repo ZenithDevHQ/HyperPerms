@@ -10,6 +10,7 @@ import com.hyperperms.model.User;
 import com.hyperperms.storage.StorageProvider;
 import com.hyperperms.util.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -37,6 +38,7 @@ public final class JsonStorageProvider implements StorageProvider {
     private final Path usersDirectory;
     private final Path groupsDirectory;
     private final Path tracksDirectory;
+    private final Path backupsDirectory;
     private final Gson gson;
     private final ExecutorService executor;
     private volatile boolean healthy = false;
@@ -46,6 +48,7 @@ public final class JsonStorageProvider implements StorageProvider {
         this.usersDirectory = dataDirectory.resolve("users");
         this.groupsDirectory = dataDirectory.resolve("groups");
         this.tracksDirectory = dataDirectory.resolve("tracks");
+        this.backupsDirectory = dataDirectory.resolve("backups");
         this.executor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "HyperPerms-JsonStorage");
             t.setDaemon(true);
@@ -79,6 +82,7 @@ public final class JsonStorageProvider implements StorageProvider {
                 Files.createDirectories(usersDirectory);
                 Files.createDirectories(groupsDirectory);
                 Files.createDirectories(tracksDirectory);
+                Files.createDirectories(backupsDirectory);
                 healthy = true;
                 Logger.info("JSON storage initialized at: " + dataDirectory);
             } catch (IOException e) {
@@ -385,6 +389,211 @@ public final class JsonStorageProvider implements StorageProvider {
         return healthy;
     }
 
+    // ==================== Backup Operations ====================
+
+    @Override
+    public CompletableFuture<String> createBackup(@Nullable String name) {
+        return CompletableFuture.supplyAsync(() -> {
+            String backupName = name != null ? name : 
+                "backup-" + java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
+            
+            Path backupDir = backupsDirectory.resolve(backupName);
+            
+            try {
+                // Create backup directory
+                Files.createDirectories(backupDir);
+                Path backupUsersDir = backupDir.resolve("users");
+                Path backupGroupsDir = backupDir.resolve("groups");
+                Path backupTracksDir = backupDir.resolve("tracks");
+                Files.createDirectories(backupUsersDir);
+                Files.createDirectories(backupGroupsDir);
+                Files.createDirectories(backupTracksDir);
+
+                // Copy all user files
+                if (Files.exists(usersDirectory)) {
+                    try (var stream = Files.list(usersDirectory)) {
+                        stream.filter(p -> p.toString().endsWith(".json"))
+                              .forEach(file -> {
+                                  try {
+                                      Files.copy(file, backupUsersDir.resolve(file.getFileName()),
+                                                 StandardCopyOption.REPLACE_EXISTING);
+                                  } catch (IOException e) {
+                                      Logger.warn("Failed to backup user file: " + file.getFileName());
+                                  }
+                              });
+                    }
+                }
+
+                // Copy all group files
+                if (Files.exists(groupsDirectory)) {
+                    try (var stream = Files.list(groupsDirectory)) {
+                        stream.filter(p -> p.toString().endsWith(".json"))
+                              .forEach(file -> {
+                                  try {
+                                      Files.copy(file, backupGroupsDir.resolve(file.getFileName()),
+                                                 StandardCopyOption.REPLACE_EXISTING);
+                                  } catch (IOException e) {
+                                      Logger.warn("Failed to backup group file: " + file.getFileName());
+                                  }
+                              });
+                    }
+                }
+
+                // Copy all track files
+                if (Files.exists(tracksDirectory)) {
+                    try (var stream = Files.list(tracksDirectory)) {
+                        stream.filter(p -> p.toString().endsWith(".json"))
+                              .forEach(file -> {
+                                  try {
+                                      Files.copy(file, backupTracksDir.resolve(file.getFileName()),
+                                                 StandardCopyOption.REPLACE_EXISTING);
+                                  } catch (IOException e) {
+                                      Logger.warn("Failed to backup track file: " + file.getFileName());
+                                  }
+                              });
+                    }
+                }
+
+                Logger.info("Backup created: " + backupName);
+                return backupName;
+
+            } catch (IOException e) {
+                Logger.severe("Failed to create backup: " + backupName, e);
+                throw new RuntimeException("Backup failed", e);
+            }
+        }, executor);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> restoreBackup(@NotNull String name) {
+        return CompletableFuture.supplyAsync(() -> {
+            Path backupDir = backupsDirectory.resolve(name);
+            
+            if (!Files.exists(backupDir)) {
+                Logger.warn("Backup not found: " + name);
+                return false;
+            }
+
+            try {
+                // Create safety backup before restore
+                createBackup("pre-restore-" + System.currentTimeMillis()).join();
+
+                Path backupUsersDir = backupDir.resolve("users");
+                Path backupGroupsDir = backupDir.resolve("groups");
+                Path backupTracksDir = backupDir.resolve("tracks");
+
+                // Restore users
+                if (Files.exists(backupUsersDir)) {
+                    try (var stream = Files.list(backupUsersDir)) {
+                        stream.forEach(file -> {
+                            try {
+                                Files.copy(file, usersDirectory.resolve(file.getFileName()),
+                                           StandardCopyOption.REPLACE_EXISTING);
+                            } catch (IOException e) {
+                                Logger.warn("Failed to restore user file: " + file.getFileName());
+                            }
+                        });
+                    }
+                }
+
+                // Restore groups
+                if (Files.exists(backupGroupsDir)) {
+                    try (var stream = Files.list(backupGroupsDir)) {
+                        stream.forEach(file -> {
+                            try {
+                                Files.copy(file, groupsDirectory.resolve(file.getFileName()),
+                                           StandardCopyOption.REPLACE_EXISTING);
+                            } catch (IOException e) {
+                                Logger.warn("Failed to restore group file: " + file.getFileName());
+                            }
+                        });
+                    }
+                }
+
+                // Restore tracks
+                if (Files.exists(backupTracksDir)) {
+                    try (var stream = Files.list(backupTracksDir)) {
+                        stream.forEach(file -> {
+                            try {
+                                Files.copy(file, tracksDirectory.resolve(file.getFileName()),
+                                           StandardCopyOption.REPLACE_EXISTING);
+                            } catch (IOException e) {
+                                Logger.warn("Failed to restore track file: " + file.getFileName());
+                            }
+                        });
+                    }
+                }
+
+                Logger.info("Restored from backup: " + name);
+                return true;
+
+            } catch (Exception e) {
+                Logger.severe("Failed to restore backup: " + name, e);
+                return false;
+            }
+        }, executor);
+    }
+
+    @Override
+    public CompletableFuture<List<String>> listBackups() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<String> backups = new ArrayList<>();
+            
+            try {
+                if (Files.exists(backupsDirectory)) {
+                    try (var stream = Files.list(backupsDirectory)) {
+                        stream.filter(Files::isDirectory)
+                              .map(p -> p.getFileName().toString())
+                              .sorted(Comparator.reverseOrder()) // Newest first
+                              .forEach(backups::add);
+                    }
+                }
+            } catch (IOException e) {
+                Logger.severe("Failed to list backups", e);
+            }
+            
+            return backups;
+        }, executor);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> deleteBackup(@NotNull String name) {
+        return CompletableFuture.supplyAsync(() -> {
+            Path backupDir = backupsDirectory.resolve(name);
+            
+            if (!Files.exists(backupDir)) {
+                return false;
+            }
+
+            try {
+                // Delete all files in backup directory recursively
+                Files.walk(backupDir)
+                     .sorted(Comparator.reverseOrder())
+                     .forEach(path -> {
+                         try {
+                             Files.delete(path);
+                         } catch (IOException e) {
+                             Logger.warn("Failed to delete: " + path);
+                         }
+                     });
+                
+                Logger.info("Deleted backup: " + name);
+                return true;
+
+            } catch (IOException e) {
+                Logger.severe("Failed to delete backup: " + name, e);
+                return false;
+            }
+        }, executor);
+    }
+
+    @Override
+    @NotNull
+    public String getType() {
+        return "json";
+    }
+
     // ==================== Type Adapters ====================
 
     private static class InstantAdapter implements JsonSerializer<Instant>, JsonDeserializer<Instant> {
@@ -463,6 +672,12 @@ public final class JsonStorageProvider implements StorageProvider {
                 obj.addProperty("username", src.getUsername());
             }
             obj.addProperty("primaryGroup", src.getPrimaryGroup());
+            if (src.getCustomPrefix() != null) {
+                obj.addProperty("customPrefix", src.getCustomPrefix());
+            }
+            if (src.getCustomSuffix() != null) {
+                obj.addProperty("customSuffix", src.getCustomSuffix());
+            }
             JsonArray nodes = new JsonArray();
             for (Node node : src.getNodes()) {
                 nodes.add(context.serialize(node));
@@ -481,6 +696,12 @@ public final class JsonStorageProvider implements StorageProvider {
             if (obj.has("primaryGroup")) {
                 user.setPrimaryGroup(obj.get("primaryGroup").getAsString());
             }
+            if (obj.has("customPrefix")) {
+                user.setCustomPrefix(obj.get("customPrefix").getAsString());
+            }
+            if (obj.has("customSuffix")) {
+                user.setCustomSuffix(obj.get("customSuffix").getAsString());
+            }
             if (obj.has("nodes")) {
                 for (JsonElement elem : obj.getAsJsonArray("nodes")) {
                     Node node = context.deserialize(elem, Node.class);
@@ -498,6 +719,18 @@ public final class JsonStorageProvider implements StorageProvider {
             obj.addProperty("name", src.getName());
             obj.addProperty("displayName", src.getDisplayName());
             obj.addProperty("weight", src.getWeight());
+            if (src.getPrefix() != null) {
+                obj.addProperty("prefix", src.getPrefix());
+            }
+            if (src.getSuffix() != null) {
+                obj.addProperty("suffix", src.getSuffix());
+            }
+            if (src.getPrefixPriority() != 0) {
+                obj.addProperty("prefixPriority", src.getPrefixPriority());
+            }
+            if (src.getSuffixPriority() != 0) {
+                obj.addProperty("suffixPriority", src.getSuffixPriority());
+            }
             JsonArray nodes = new JsonArray();
             for (Node node : src.getNodes()) {
                 nodes.add(context.serialize(node));
@@ -515,6 +748,18 @@ public final class JsonStorageProvider implements StorageProvider {
             Group group = new Group(name, weight);
             if (obj.has("displayName")) {
                 group.setDisplayName(obj.get("displayName").getAsString());
+            }
+            if (obj.has("prefix")) {
+                group.setPrefix(obj.get("prefix").getAsString());
+            }
+            if (obj.has("suffix")) {
+                group.setSuffix(obj.get("suffix").getAsString());
+            }
+            if (obj.has("prefixPriority")) {
+                group.setPrefixPriority(obj.get("prefixPriority").getAsInt());
+            }
+            if (obj.has("suffixPriority")) {
+                group.setSuffixPriority(obj.get("suffixPriority").getAsInt());
             }
             if (obj.has("nodes")) {
                 for (JsonElement elem : obj.getAsJsonArray("nodes")) {

@@ -81,6 +81,7 @@ public final class HyperPermsConfig {
 
         JsonObject jsonSettings = new JsonObject();
         jsonSettings.addProperty("directory", "data");
+        jsonSettings.addProperty("prettyPrint", true);
         storage.add("json", jsonSettings);
 
         JsonObject sqliteSettings = new JsonObject();
@@ -105,10 +106,28 @@ public final class HyperPermsConfig {
         cache.addProperty("maxSize", 10000);
         root.add("cache", cache);
 
+        // Chat settings
+        JsonObject chat = new JsonObject();
+        chat.addProperty("enabled", true);
+        chat.addProperty("format", "%prefix%%player%%suffix%&8: &f%message%");
+        chat.addProperty("allowPlayerColors", true);
+        chat.addProperty("colorPermission", "hyperperms.chat.color");
+        root.add("chat", chat);
+
+        // Backup settings
+        JsonObject backup = new JsonObject();
+        backup.addProperty("autoBackup", true);
+        backup.addProperty("maxBackups", 10);
+        backup.addProperty("backupOnSave", false);
+        backup.addProperty("intervalSeconds", 3600);
+        root.add("backup", backup);
+
         // Default settings
         JsonObject defaults = new JsonObject();
         defaults.addProperty("group", "default");
         defaults.addProperty("createDefaultGroup", true);
+        defaults.addProperty("prefix", "&7");
+        defaults.addProperty("suffix", "");
         root.add("defaults", defaults);
 
         // Task settings
@@ -127,6 +146,12 @@ public final class HyperPermsConfig {
         JsonObject server = new JsonObject();
         server.addProperty("name", "");
         root.add("server", server);
+
+        // Web editor settings
+        JsonObject webEditor = new JsonObject();
+        webEditor.addProperty("url", "https://www.hyperperms.com");
+        webEditor.addProperty("timeoutSeconds", 10);
+        root.add("webEditor", webEditor);
 
         return root;
     }
@@ -197,6 +222,107 @@ public final class HyperPermsConfig {
         return getNestedBoolean("defaults", "createDefaultGroup", true);
     }
 
+    /**
+     * Gets the default prefix for users without a group prefix.
+     *
+     * @return the default prefix
+     */
+    @NotNull
+    public String getDefaultPrefix() {
+        return getNestedString("defaults", "prefix", "&7");
+    }
+
+    /**
+     * Gets the default suffix for users without a group suffix.
+     *
+     * @return the default suffix
+     */
+    @NotNull
+    public String getDefaultSuffix() {
+        return getNestedString("defaults", "suffix", "");
+    }
+
+    // ==================== Chat Settings ====================
+
+    /**
+     * Checks if chat formatting is enabled.
+     *
+     * @return true if chat formatting is enabled
+     */
+    public boolean isChatEnabled() {
+        return getNestedBoolean("chat", "enabled", false);
+    }
+
+    /**
+     * Gets the chat format string.
+     * Supports placeholders: %prefix%, %player%, %suffix%, %message%, %group%, etc.
+     *
+     * @return the chat format string
+     */
+    @NotNull
+    public String getChatFormat() {
+        return getNestedString("chat", "format", "%prefix%%player%%suffix%&8: &f%message%");
+    }
+
+    /**
+     * Checks if players can use color codes in their messages.
+     *
+     * @return true if player colors are allowed
+     */
+    public boolean isAllowPlayerColors() {
+        return getNestedBoolean("chat", "allowPlayerColors", true);
+    }
+
+    /**
+     * Gets the permission required for players to use colors in chat.
+     *
+     * @return the color permission node
+     */
+    @NotNull
+    public String getColorPermission() {
+        return getNestedString("chat", "colorPermission", "hyperperms.chat.color");
+    }
+
+    // ==================== Backup Settings ====================
+
+    /**
+     * Checks if automatic backups are enabled.
+     *
+     * @return true if auto-backup is enabled
+     */
+    public boolean isAutoBackupEnabled() {
+        return getNestedBoolean("backup", "autoBackup", true);
+    }
+
+    /**
+     * Gets the maximum number of backups to keep.
+     *
+     * @return the maximum backup count
+     */
+    public int getMaxBackups() {
+        return getNestedInt("backup", "maxBackups", 10);
+    }
+
+    /**
+     * Checks if backups should be created on every save.
+     *
+     * @return true if backup-on-save is enabled
+     */
+    public boolean isBackupOnSave() {
+        return getNestedBoolean("backup", "backupOnSave", false);
+    }
+
+    /**
+     * Gets the interval in seconds between automatic backups.
+     *
+     * @return the auto-backup interval in seconds
+     */
+    public int getAutoBackupIntervalSeconds() {
+        return getNestedInt("backup", "intervalSeconds", 3600);
+    }
+
+    // ==================== Task Settings ====================
+
     public int getExpiryCheckInterval() {
         return getNestedInt("tasks", "expiryCheckIntervalSeconds", 60);
     }
@@ -221,6 +347,28 @@ public final class HyperPermsConfig {
     @NotNull
     public String getServerName() {
         return getNestedString("server", "name", "");
+    }
+
+
+    // ==================== Web Editor Settings ====================
+
+    /**
+     * Gets the web editor URL for remote permission management.
+     *
+     * @return the web editor URL
+     */
+    @NotNull
+    public String getWebEditorUrl() {
+        return getNestedString("webEditor", "url", "https://www.hyperperms.com");
+    }
+
+    /**
+     * Gets the HTTP timeout in seconds for web editor API calls.
+     *
+     * @return the timeout in seconds
+     */
+    public int getWebEditorTimeoutSeconds() {
+        return getNestedInt("webEditor", "timeoutSeconds", 10);
     }
 
     // ==================== Helper Methods ====================

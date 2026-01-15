@@ -2,6 +2,7 @@ package com.hyperperms.storage;
 
 import com.hyperperms.config.HyperPermsConfig;
 import com.hyperperms.storage.json.JsonStorageProvider;
+import com.hyperperms.storage.sqlite.SQLiteStorageProvider;
 import com.hyperperms.util.Logger;
 import org.jetbrains.annotations.NotNull;
 
@@ -32,10 +33,19 @@ public final class StorageFactory {
                 yield new JsonStorageProvider(jsonDir);
             }
             case "sqlite" -> {
-                // TODO: Implement SQLite storage
-                Logger.warn("SQLite storage not yet implemented, falling back to JSON");
-                Path jsonDir = dataDirectory.resolve(config.getJsonDirectory());
-                yield new JsonStorageProvider(jsonDir);
+                if (SQLiteStorageProvider.isDriverAvailable()) {
+                    Path dbFile = dataDirectory.resolve(config.getSqliteFile());
+                    Logger.info("Using SQLite storage at: " + dbFile);
+                    yield new SQLiteStorageProvider(dbFile);
+                } else {
+                    Logger.warn("SQLite JDBC driver not found. To use SQLite storage:");
+                    Logger.warn("  1. Download sqlite-jdbc from Maven Central");
+                    Logger.warn("  2. Place it in plugins/HyperPerms/lib/");
+                    Logger.warn("  3. Restart the server");
+                    Logger.warn("Falling back to JSON storage.");
+                    Path jsonDir = dataDirectory.resolve(config.getJsonDirectory());
+                    yield new JsonStorageProvider(jsonDir);
+                }
             }
             case "mysql", "mariadb" -> {
                 // TODO: Implement MySQL storage

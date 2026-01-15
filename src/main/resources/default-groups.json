@@ -1,0 +1,86 @@
+{
+  "groups": {
+    "default": {
+      "permissions": [
+        "hyperperms.command.check.self",
+        "hytale.command.help",
+        "hytale.command.whereami",
+        "hytale.command.whoami",
+        "hytale.command.emote",
+        "hytale.command.unstuck"
+      ],
+      "weight": 0,
+      "prefix": "",
+      "suffix": ""
+    },
+    "member": {
+      "parents": ["default"],
+      "permissions": [
+        "hytale.command.spawn.teleport",
+        "hytale.command.hub"
+      ],
+      "weight": 10,
+      "prefix": "",
+      "suffix": ""
+    },
+    "builder": {
+      "parents": ["member"],
+      "permissions": [
+        "hytale.command.gamemode",
+        "hytale.command.tp.self",
+        "hytale.editor.builderTools",
+        "hytale.editor.brush.use",
+        "hytale.editor.selection.use",
+        "hytale.editor.selection.clipboard",
+        "hytale.editor.history",
+        "hytale.editor.prefab.use",
+        "hytale.camera.flycam"
+      ],
+      "weight": 20,
+      "prefix": "&a[Builder] ",
+      "suffix": ""
+    },
+    "moderator": {
+      "parents": ["builder"],
+      "permissions": [
+        "hyperperms.command.user.info",
+        "hyperperms.command.check.others",
+        "hytale.command.kick",
+        "hytale.command.tp.others",
+        "hytale.command.inventory.see",
+        "hytale.command.who",
+        "hytale.command.whitelist.list"
+      ],
+      "weight": 50,
+      "prefix": "&b[Mod] ",
+      "suffix": ""
+    },
+    "admin": {
+      "parents": ["moderator"],
+      "permissions": [
+        "hyperperms.command.*",
+        "hytale.command.ban",
+        "hytale.command.unban",
+        "hytale.command.whitelist.*",
+        "hytale.command.give.*",
+        "hytale.command.kill.*",
+        "hytale.command.damage",
+        "hytale.command.time.*",
+        "hytale.command.weather.*",
+        "hytale.command.spawn.set",
+        "hytale.command.maxplayers",
+        "hytale.command.backup",
+        "hytale.editor.*"
+      ],
+      "weight": 90,
+      "prefix": "&c[Admin] ",
+      "suffix": ""
+    },
+    "owner": {
+      "permissions": ["*"],
+      "weight": 100,
+      "prefix": "&4[Owner] ",
+      "suffix": ""
+    }
+  }
+}

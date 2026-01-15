@@ -20,6 +20,8 @@ public final class User implements PermissionHolder {
     private final UUID uuid;
     private volatile String username;
     private volatile String primaryGroup;
+    private volatile String customPrefix;
+    private volatile String customSuffix;
     private final Set<Node> nodes = ConcurrentHashMap.newKeySet();
 
     /**
@@ -32,6 +34,8 @@ public final class User implements PermissionHolder {
         this.uuid = Objects.requireNonNull(uuid, "uuid cannot be null");
         this.username = username;
         this.primaryGroup = "default";
+        this.customPrefix = null;
+        this.customSuffix = null;
     }
 
     /**
@@ -80,6 +84,48 @@ public final class User implements PermissionHolder {
      */
     public void setPrimaryGroup(@NotNull String primaryGroup) {
         this.primaryGroup = Objects.requireNonNull(primaryGroup, "primaryGroup cannot be null");
+    }
+
+    /**
+     * Gets the user's custom prefix.
+     * If set, this overrides any group prefix.
+     *
+     * @return the custom prefix, or null if not set
+     */
+    @Nullable
+    public String getCustomPrefix() {
+        return customPrefix;
+    }
+
+    /**
+     * Sets the user's custom prefix.
+     * Supports color codes like &a, &c, etc.
+     *
+     * @param customPrefix the prefix, or null to clear
+     */
+    public void setCustomPrefix(@Nullable String customPrefix) {
+        this.customPrefix = customPrefix;
+    }
+
+    /**
+     * Gets the user's custom suffix.
+     * If set, this overrides any group suffix.
+     *
+     * @return the custom suffix, or null if not set
+     */
+    @Nullable
+    public String getCustomSuffix() {
+        return customSuffix;
+    }
+
+    /**
+     * Sets the user's custom suffix.
+     * Supports color codes like &a, &c, etc.
+     *
+     * @param customSuffix the suffix, or null to clear
+     */
+    public void setCustomSuffix(@Nullable String customSuffix) {
+        this.customSuffix = customSuffix;
     }
 
     @Override
@@ -222,7 +268,10 @@ public final class User implements PermissionHolder {
      * @return true if the user has permissions or non-default settings
      */
     public boolean hasData() {
-        return !nodes.isEmpty() || !primaryGroup.equals("default");
+        return !nodes.isEmpty() 
+            || !primaryGroup.equals("default")
+            || customPrefix != null
+            || customSuffix != null;
     }
 
     @Override

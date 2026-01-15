@@ -20,6 +20,10 @@ public final class Group implements PermissionHolder {
     private final String name;
     private volatile String displayName;
     private volatile int weight;
+    private volatile String prefix;
+    private volatile String suffix;
+    private volatile int prefixPriority;
+    private volatile int suffixPriority;
     private final Set<Node> nodes = ConcurrentHashMap.newKeySet();
 
     /**
@@ -31,6 +35,10 @@ public final class Group implements PermissionHolder {
         this.name = Objects.requireNonNull(name, "name cannot be null").toLowerCase();
         this.displayName = this.name;
         this.weight = 0;
+        this.prefix = null;
+        this.suffix = null;
+        this.prefixPriority = 0;
+        this.suffixPriority = 0;
     }
 
     /**
@@ -90,6 +98,84 @@ public final class Group implements PermissionHolder {
      */
     public void setWeight(int weight) {
         this.weight = weight;
+    }
+
+    /**
+     * Gets the group's chat prefix.
+     *
+     * @return the prefix, or null if not set
+     */
+    @Nullable
+    public String getPrefix() {
+        return prefix;
+    }
+
+    /**
+     * Sets the group's chat prefix.
+     * Supports color codes like &a, &c, etc.
+     *
+     * @param prefix the prefix, or null to clear
+     */
+    public void setPrefix(@Nullable String prefix) {
+        this.prefix = prefix;
+    }
+
+    /**
+     * Gets the group's chat suffix.
+     *
+     * @return the suffix, or null if not set
+     */
+    @Nullable
+    public String getSuffix() {
+        return suffix;
+    }
+
+    /**
+     * Sets the group's chat suffix.
+     * Supports color codes like &a, &c, etc.
+     *
+     * @param suffix the suffix, or null to clear
+     */
+    public void setSuffix(@Nullable String suffix) {
+        this.suffix = suffix;
+    }
+
+    /**
+     * Gets the prefix priority.
+     * When a user has multiple groups, the highest priority prefix is used.
+     *
+     * @return the prefix priority
+     */
+    public int getPrefixPriority() {
+        return prefixPriority;
+    }
+
+    /**
+     * Sets the prefix priority.
+     *
+     * @param prefixPriority the priority
+     */
+    public void setPrefixPriority(int prefixPriority) {
+        this.prefixPriority = prefixPriority;
+    }
+
+    /**
+     * Gets the suffix priority.
+     * When a user has multiple groups, the highest priority suffix is used.
+     *
+     * @return the suffix priority
+     */
+    public int getSuffixPriority() {
+        return suffixPriority;
+    }
+
+    /**
+     * Sets the suffix priority.
+     *
+     * @param suffixPriority the priority
+     */
+    public void setSuffixPriority(int suffixPriority) {
+        this.suffixPriority = suffixPriority;
     }
 
     @Override
@@ -271,6 +357,16 @@ public final class Group implements PermissionHolder {
 
     @Override
     public String toString() {
-        return "Group{name='" + name + "', displayName='" + displayName + "', weight=" + weight + "}";
+        StringBuilder sb = new StringBuilder("Group{name='").append(name).append('\'');
+        sb.append(", displayName='").append(displayName).append('\'');
+        sb.append(", weight=").append(weight);
+        if (prefix != null) {
+            sb.append(", prefix='").append(prefix).append('\'');
+        }
+        if (suffix != null) {
+            sb.append(", suffix='").append(suffix).append('\'');
+        }
+        sb.append('}');
+        return sb.toString();
     }
 }

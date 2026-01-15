@@ -27,6 +27,11 @@ public interface HyperPermsEvent {
         PERMISSION_CHANGE,
 
         /**
+         * Fired when a permission is registered with the registry.
+         */
+        PERMISSION_REGISTER,
+
+        /**
          * Fired when a group is created.
          */
         GROUP_CREATE,
@@ -40,6 +45,11 @@ public interface HyperPermsEvent {
          * Fired when a user's group membership changes.
          */
         USER_GROUP_CHANGE,
+
+        /**
+         * Fired when a player's context changes (world, gamemode, etc.).
+         */
+        CONTEXT_CHANGE,
 
         /**
          * Fired when data is reloaded.

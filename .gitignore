@@ -45,3 +45,10 @@ libs/
 
 # Downloaded archives
 *.zip
+
+# Temp files
+hytale_api_temp/
+hytale_classes.txt
+nul
+.playwright-mcp/
+.serena/

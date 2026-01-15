@@ -83,6 +83,69 @@ public class HytaleAdapter implements PlayerContextProvider {
         return playerData.containsKey(uuid);
     }
 
+    @Override
+    @Nullable
+    public String getTimeOfDay(@NotNull UUID uuid) {
+        PlayerData data = playerData.get(uuid);
+        if (data == null || data.playerRef == null) {
+            return null;
+        }
+
+        try {
+            // Get the world the player is in
+            var holder = data.playerRef.getHolder();
+            if (holder == null) {
+                return null;
+            }
+
+            // Try to get time from the world's time resource
+            // WorldTimeResource provides getDayProgress() which returns 0.0-1.0
+            // We need to map this to dawn/day/dusk/night periods
+            // For now, return cached time or calculate from day progress
+            
+            // Time periods based on typical day/night cycle:
+            // Dawn: ~0.20-0.30 (5:00-7:00)
+            // Day: ~0.30-0.70 (7:00-17:00)
+            // Dusk: ~0.70-0.80 (17:00-19:00)
+            // Night: ~0.80-0.20 (19:00-5:00)
+            
+            float dayProgress = data.dayProgress;
+            if (dayProgress < 0.20f || dayProgress >= 0.80f) {
+                return "night";
+            } else if (dayProgress < 0.30f) {
+                return "dawn";
+            } else if (dayProgress < 0.70f) {
+                return "day";
+            } else {
+                return "dusk";
+            }
+        } catch (Exception e) {
+            Logger.debug("Failed to get time of day for %s: %s", uuid, e.getMessage());
+        }
+
+        return null;
+    }
+
+    @Override
+    @Nullable
+    public String getBiome(@NotNull UUID uuid) {
+        PlayerData data = playerData.get(uuid);
+        if (data != null && data.biome != null) {
+            return data.biome;
+        }
+        return null;
+    }
+
+    @Override
+    @Nullable
+    public String getRegion(@NotNull UUID uuid) {
+        PlayerData data = playerData.get(uuid);
+        if (data != null && data.region != null) {
+            return data.region;
+        }
+        return null;
+    }
+
     // ==================== Player Tracking ====================
 
     /**
@@ -139,6 +202,85 @@ public class HytaleAdapter implements PlayerContextProvider {
 
             // Invalidate cache when game mode changes
             hyperPerms.getCacheInvalidator().invalidateContextCache(uuid);
+        }
+    }
+
+    /**
+     * Updates a player's biome.
+     *
+     * @param uuid  the player's UUID
+     * @param biome the new biome name
+     */
+    public void updatePlayerBiome(@NotNull UUID uuid, @Nullable String biome) {
+        PlayerData data = playerData.get(uuid);
+        if (data != null) {
+            String oldBiome = data.biome;
+            data.biome = biome;
+            
+            if (!java.util.Objects.equals(oldBiome, biome)) {
+                Logger.debug("Player %s biome changed: %s -> %s", uuid, oldBiome, biome);
+                // Invalidate cache when biome changes
+                hyperPerms.getCacheInvalidator().invalidateContextCache(uuid);
+            }
+        }
+    }
+
+    /**
+     * Updates a player's region.
+     *
+     * @param uuid   the player's UUID
+     * @param region the new region name, or null if not in a region
+     */
+    public void updatePlayerRegion(@NotNull UUID uuid, @Nullable String region) {
+        PlayerData data = playerData.get(uuid);
+        if (data != null) {
+            String oldRegion = data.region;
+            data.region = region;
+            
+            if (!java.util.Objects.equals(oldRegion, region)) {
+                Logger.debug("Player %s region changed: %s -> %s", uuid, oldRegion, region);
+                // Invalidate cache when region changes
+                hyperPerms.getCacheInvalidator().invalidateContextCache(uuid);
+            }
+        }
+    }
+
+    /**
+     * Updates the day progress for a player's world.
+     * <p>
+     * This is typically updated periodically by the world's time system.
+     *
+     * @param uuid        the player's UUID
+     * @param dayProgress the day progress (0.0 to 1.0, where 0.0 is midnight)
+     */
+    public void updateDayProgress(@NotNull UUID uuid, float dayProgress) {
+        PlayerData data = playerData.get(uuid);
+        if (data != null) {
+            // Only invalidate cache if the time period changed
+            String oldPeriod = getTimePeriod(data.dayProgress);
+            String newPeriod = getTimePeriod(dayProgress);
+            
+            data.dayProgress = dayProgress;
+            
+            if (!oldPeriod.equals(newPeriod)) {
+                Logger.debug("Player %s time period changed: %s -> %s", uuid, oldPeriod, newPeriod);
+                hyperPerms.getCacheInvalidator().invalidateContextCache(uuid);
+            }
+        }
+    }
+
+    /**
+     * Converts day progress to a time period string.
+     */
+    private String getTimePeriod(float dayProgress) {
+        if (dayProgress < 0.20f || dayProgress >= 0.80f) {
+            return "night";
+        } else if (dayProgress < 0.30f) {
+            return "dawn";
+        } else if (dayProgress < 0.70f) {
+            return "day";
+        } else {
+            return "dusk";
         }
     }
 
@@ -238,11 +380,17 @@ public class HytaleAdapter implements PlayerContextProvider {
         final PlayerRef playerRef;
         volatile String worldName;
         volatile String gameMode;
+        volatile String biome;
+        volatile String region;
+        volatile float dayProgress;
 
         PlayerData(PlayerRef playerRef, String worldName) {
             this.playerRef = playerRef;
             this.worldName = worldName;
             this.gameMode = "adventure"; // Default game mode
+            this.biome = null;
+            this.region = null;
+            this.dayProgress = 0.5f; // Default to midday
         }
     }
 }

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.hyperperms'
-version = '1.1.0'
+version = '2.0.2'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -22,9 +22,6 @@ dependencies {
     // JSON handling
     implementation 'com.google.code.gson:gson:2.11.0'
 
-    // SQLite JDBC driver
-    implementation 'org.xerial:sqlite-jdbc:3.45.1.0'
-
     // High-performance caching
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
@@ -41,7 +38,6 @@ shadowJar {
 
     // Relocate dependencies to avoid conflicts
     relocate 'com.google.gson', 'com.hyperperms.lib.gson'
-    relocate 'org.sqlite', 'com.hyperperms.lib.sqlite'
     relocate 'com.github.benmanes.caffeine', 'com.hyperperms.lib.caffeine'
 
     // Minimize JAR but exclude Caffeine - its cache implementation classes

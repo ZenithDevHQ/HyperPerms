@@ -1,6 +1,7 @@
 package com.hyperperms;
 
 import com.hyperperms.api.HyperPermsAPI;
+import com.hyperperms.api.PermissionCheckBuilder;
 import com.hyperperms.api.context.ContextSet;
 import com.hyperperms.api.events.EventBus;
 import com.hyperperms.api.events.PermissionCheckEvent;
@@ -10,9 +11,13 @@ import com.hyperperms.resolver.PermissionTrace;
 import com.hyperperms.config.HyperPermsConfig;
 import com.hyperperms.context.ContextManager;
 import com.hyperperms.context.PlayerContextProvider;
+import com.hyperperms.context.calculators.BiomeContextCalculator;
 import com.hyperperms.context.calculators.GameModeContextCalculator;
+import com.hyperperms.context.calculators.RegionContextCalculator;
 import com.hyperperms.context.calculators.ServerContextCalculator;
+import com.hyperperms.context.calculators.TimeContextCalculator;
 import com.hyperperms.context.calculators.WorldContextCalculator;
+import com.hyperperms.registry.PermissionRegistry;
 import com.hyperperms.manager.GroupManagerImpl;
 import com.hyperperms.manager.TrackManagerImpl;
 import com.hyperperms.manager.UserManagerImpl;
@@ -52,6 +57,16 @@ public final class HyperPerms implements HyperPermsAPI {
     private EventBus eventBus;
     private ContextManager contextManager;
     private PlayerContextProvider playerContextProvider;
+    private com.hyperperms.registry.PermissionRegistry permissionRegistry;
+
+    // Chat system
+    private com.hyperperms.chat.ChatManager chatManager;
+
+    // Web editor
+    private com.hyperperms.web.WebEditorService webEditorService;
+
+    // Backup system
+    private com.hyperperms.backup.BackupManager backupManager;
 
     // Managers
     private UserManagerImpl userManager;
@@ -141,7 +156,12 @@ public final class HyperPerms implements HyperPermsAPI {
             groupManager.loadAll().join();
             trackManager.loadAll().join();
 
-            // Ensure default group exists
+            // Load default groups on first run if no groups exist
+            if (groupManager.getLoadedGroups().isEmpty()) {
+                loadDefaultGroups();
+            }
+
+            // Ensure default group exists (fallback if default-groups.json missing)
             if (config.shouldCreateDefaultGroup()) {
                 groupManager.ensureDefaultGroup(config.getDefaultGroup());
             }
@@ -153,6 +173,21 @@ public final class HyperPerms implements HyperPermsAPI {
             contextManager = new ContextManager();
             playerContextProvider = PlayerContextProvider.EMPTY; // Will be set by platform
             registerDefaultContextCalculators();
+
+            // Initialize permission registry
+            permissionRegistry = com.hyperperms.registry.PermissionRegistry.getInstance();
+            permissionRegistry.registerBuiltInPermissions();
+
+            // Initialize chat manager
+            chatManager = new com.hyperperms.chat.ChatManager(this);
+            chatManager.loadConfig();
+
+            // Initialize web editor service
+            webEditorService = new com.hyperperms.web.WebEditorService(this);
+
+            // Initialize backup manager
+            backupManager = new com.hyperperms.backup.BackupManager(this);
+            backupManager.start();
 
             // Start scheduled tasks
             scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -191,6 +226,11 @@ public final class HyperPerms implements HyperPermsAPI {
         }
 
         Logger.info("Disabling HyperPerms...");
+
+        // Stop backup manager
+        if (backupManager != null) {
+            backupManager.shutdown();
+        }
 
         // Stop scheduled tasks
         if (expiryTask != null) {
@@ -292,6 +332,27 @@ public final class HyperPerms implements HyperPermsAPI {
             fireCheckEvent(uuid, permission, contexts, result, null);
             return result.asBoolean();
         }
+    }
+
+    /**
+     * Creates a permission check builder for fluent permission checks with contexts.
+     * <p>
+     * Example usage:
+     * <pre>
+     * boolean canBuild = HyperPerms.getInstance()
+     *     .check(playerUuid)
+     *     .permission("build.place")
+     *     .inWorld("nether")
+     *     .withGamemode("survival")
+     *     .result();
+     * </pre>
+     *
+     * @param uuid the player UUID
+     * @return a new permission check builder
+     */
+    @NotNull
+    public PermissionCheckBuilder check(@NotNull UUID uuid) {
+        return new PermissionCheckBuilder(this, uuid);
     }
 
     private void fireCheckEvent(UUID uuid, String permission, ContextSet contexts, TriState result,
@@ -427,6 +488,19 @@ public final class HyperPerms implements HyperPermsAPI {
     }
 
     /**
+     * Gets the permission registry.
+     * <p>
+     * The permission registry tracks all registered permissions from HyperPerms
+     * and external plugins, with descriptions and categories.
+     *
+     * @return the permission registry
+     */
+    @NotNull
+    public com.hyperperms.registry.PermissionRegistry getPermissionRegistry() {
+        return permissionRegistry;
+    }
+
+    /**
      * Sets the player context provider.
      * <p>
      * This should be called by the platform adapter to provide
@@ -451,6 +525,15 @@ public final class HyperPerms implements HyperPermsAPI {
         // Game mode context
         contextManager.registerCalculator(new GameModeContextCalculator(playerContextProvider));
 
+        // Time context (day/night/dawn/dusk)
+        contextManager.registerCalculator(new com.hyperperms.context.calculators.TimeContextCalculator(playerContextProvider));
+
+        // Biome context
+        contextManager.registerCalculator(new com.hyperperms.context.calculators.BiomeContextCalculator(playerContextProvider));
+
+        // Region context
+        contextManager.registerCalculator(new com.hyperperms.context.calculators.RegionContextCalculator(playerContextProvider));
+
         // Server context (only if configured)
         String serverName = config.getServerName();
         if (!serverName.isEmpty()) {
@@ -458,5 +541,117 @@ public final class HyperPerms implements HyperPermsAPI {
         }
 
         Logger.debug("Registered %d context calculators", contextManager.getCalculatorCount());
+    }
+
+    /**
+     * Loads default groups from the default-groups.json resource.
+     * <p>
+     * This is called on first run when no groups exist in storage.
+     * It creates a standard group hierarchy: default -> member -> builder -> moderator -> admin -> owner
+     */
+    private void loadDefaultGroups() {
+        Logger.info("No groups found, loading default groups...");
+        
+        try (var inputStream = getClass().getClassLoader().getResourceAsStream("default-groups.json")) {
+            if (inputStream == null) {
+                Logger.warn("default-groups.json not found in resources, skipping default group creation");
+                return;
+            }
+
+            String json = new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+            com.google.gson.JsonObject groups = root.getAsJsonObject("groups");
+
+            if (groups == null) {
+                Logger.warn("No 'groups' object found in default-groups.json");
+                return;
+            }
+
+            int created = 0;
+            for (var entry : groups.entrySet()) {
+                String groupName = entry.getKey();
+                com.google.gson.JsonObject groupData = entry.getValue().getAsJsonObject();
+
+                // Create the group
+                com.hyperperms.model.Group group = groupManager.createGroup(groupName);
+
+                // Set weight
+                if (groupData.has("weight")) {
+                    group.setWeight(groupData.get("weight").getAsInt());
+                }
+
+                // Set prefix
+                if (groupData.has("prefix")) {
+                    group.setPrefix(groupData.get("prefix").getAsString());
+                }
+
+                // Set suffix
+                if (groupData.has("suffix")) {
+                    group.setSuffix(groupData.get("suffix").getAsString());
+                }
+
+                // Add permissions
+                if (groupData.has("permissions")) {
+                    for (var perm : groupData.getAsJsonArray("permissions")) {
+                        group.addNode(com.hyperperms.model.Node.builder(perm.getAsString()).build());
+                    }
+                }
+
+                // Add parent groups (will be resolved after all groups are created)
+                if (groupData.has("parents")) {
+                    for (var parent : groupData.getAsJsonArray("parents")) {
+                        group.addParent(parent.getAsString());
+                    }
+                }
+
+                // Save the group
+                groupManager.saveGroup(group).join();
+                created++;
+                Logger.debug("Created default group: %s (weight=%d)", groupName, group.getWeight());
+            }
+
+            Logger.info("Loaded %d default groups from default-groups.json", created);
+
+        } catch (Exception e) {
+            Logger.warn("Failed to load default groups: %s", e.getMessage());
+            Logger.debug("Stack trace: ", e);
+        }
+    }
+
+    /**
+     * Gets the chat manager.
+     * <p>
+     * The chat manager handles prefix/suffix resolution and chat formatting.
+     *
+     * @return the chat manager, or null if not yet initialized
+     */
+    @Nullable
+    public com.hyperperms.chat.ChatManager getChatManager() {
+        return chatManager;
+    }
+
+    /**
+     * Gets the backup manager.
+     * <p>
+     * The backup manager handles automatic and manual backups.
+     *
+     * @return the backup manager, or null if not yet initialized
+     */
+    @Nullable
+    public com.hyperperms.backup.BackupManager getBackupManager() {
+        return backupManager;
+    }
+
+
+    /**
+     * Gets the web editor service.
+     * <p>
+     * The web editor service handles communication with the remote web editor.
+     *
+     * @return the web editor service, or null if not yet initialized
+     */
+    @Nullable
+    public com.hyperperms.web.WebEditorService getWebEditorService() {
+        return webEditorService;
     }
 }

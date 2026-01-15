@@ -187,4 +187,45 @@ public interface StorageProvider {
      * @return true if healthy
      */
     boolean isHealthy();
+
+    // ==================== Backup Operations ====================
+
+    /**
+     * Creates a backup with the specified name.
+     *
+     * @param name the backup name, or null for auto-generated name
+     * @return a future that completes with the backup name
+     */
+    CompletableFuture<String> createBackup(@Nullable String name);
+
+    /**
+     * Restores from a backup.
+     *
+     * @param name the backup name to restore
+     * @return a future that completes with true if successful
+     */
+    CompletableFuture<Boolean> restoreBackup(@NotNull String name);
+
+    /**
+     * Lists all available backups.
+     *
+     * @return a future that completes with the list of backup names (newest first)
+     */
+    CompletableFuture<java.util.List<String>> listBackups();
+
+    /**
+     * Deletes a backup.
+     *
+     * @param name the backup name to delete
+     * @return a future that completes with true if deleted
+     */
+    CompletableFuture<Boolean> deleteBackup(@NotNull String name);
+
+    /**
+     * Gets the type/name of this storage provider.
+     *
+     * @return the storage type (e.g., "json", "sqlite")
+     */
+    @NotNull
+    String getType();
 }
