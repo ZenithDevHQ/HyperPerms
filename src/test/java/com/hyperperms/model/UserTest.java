@@ -77,7 +77,9 @@ class UserTest {
         assertEquals(DataMutateResult.SUCCESS, user.addGroup("donator"));
 
         var groups = user.getInheritedGroups();
-        assertEquals(2, groups.size());
+        // 3 groups: default (primaryGroup) + vip + donator
+        assertEquals(3, groups.size());
+        assertTrue(groups.contains("default"));  // Primary group is always included
         assertTrue(groups.contains("vip"));
         assertTrue(groups.contains("donator"));
     }

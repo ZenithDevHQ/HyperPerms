@@ -158,6 +158,7 @@ public class PrefixSuffixResolver {
     
     /**
      * Resolves prefix/suffix from user's groups.
+     * Prioritizes the user's primary group for prefix/suffix, then falls back to weight-based resolution.
      */
     private CompletableFuture<ResolveResult> resolveFromGroups(
             @NotNull User user,
@@ -178,6 +179,9 @@ public class PrefixSuffixResolver {
             );
         }
         
+        // Get the user's explicit primary group name
+        String primaryGroupName = user.getPrimaryGroup();
+        
         // Load all groups
         List<CompletableFuture<Optional<Group>>> groupFutures = groupNames.stream()
             .map(name -> plugin.getStorage().loadGroup(name))
@@ -191,14 +195,25 @@ public class PrefixSuffixResolver {
                     .map(Optional::get)
                     .collect(Collectors.toList());
                 
+                // Find the primary group object
+                Group primaryGroup = null;
+                if (primaryGroupName != null && !primaryGroupName.isEmpty()) {
+                    primaryGroup = groups.stream()
+                        .filter(g -> g.getName().equals(primaryGroupName))
+                        .findFirst()
+                        .orElse(null);
+                }
+                
+                final Group finalPrimaryGroup = primaryGroup;
+                
                 if (useInheritedGroups) {
                     // Expand to include inherited groups
                     return expandInheritedGroups(groups).thenApply(allGroups -> 
-                        resolveFromGroupList(allGroups, customPrefix, customSuffix)
+                        resolveFromGroupList(allGroups, customPrefix, customSuffix, finalPrimaryGroup)
                     );
                 } else {
                     return CompletableFuture.completedFuture(
-                        resolveFromGroupList(groups, customPrefix, customSuffix)
+                        resolveFromGroupList(groups, customPrefix, customSuffix, finalPrimaryGroup)
                     );
                 }
             });
@@ -265,11 +280,14 @@ public class PrefixSuffixResolver {
     
     /**
      * Resolves prefix/suffix from a list of groups.
+     * If a primary group is provided and has a prefix/suffix, that takes priority.
+     * Otherwise falls back to highest priority/weight group.
      */
     private ResolveResult resolveFromGroupList(
             @NotNull List<Group> groups,
             @Nullable String customPrefix,
-            @Nullable String customSuffix) {
+            @Nullable String customSuffix,
+            @Nullable Group primaryGroup) {
         
         String resolvedPrefix;
         String resolvedSuffix;
@@ -280,12 +298,19 @@ public class PrefixSuffixResolver {
         if (customPrefix != null) {
             resolvedPrefix = customPrefix;
         } else {
-            GroupPrefixSuffix best = findBestPrefix(groups);
-            if (best != null) {
-                resolvedPrefix = best.value;
-                prefixSource = best.group;
+            // First try primary group's prefix
+            if (primaryGroup != null && primaryGroup.getPrefix() != null && !primaryGroup.getPrefix().isEmpty()) {
+                resolvedPrefix = primaryGroup.getPrefix();
+                prefixSource = primaryGroup;
             } else {
-                resolvedPrefix = defaultPrefix;
+                // Fall back to highest priority/weight group
+                GroupPrefixSuffix best = findBestPrefix(groups);
+                if (best != null) {
+                    resolvedPrefix = best.value;
+                    prefixSource = best.group;
+                } else {
+                    resolvedPrefix = defaultPrefix;
+                }
             }
         }
         
@@ -293,12 +318,19 @@ public class PrefixSuffixResolver {
         if (customSuffix != null) {
             resolvedSuffix = customSuffix;
         } else {
-            GroupPrefixSuffix best = findBestSuffix(groups);
-            if (best != null) {
-                resolvedSuffix = best.value;
-                suffixSource = best.group;
+            // First try primary group's suffix
+            if (primaryGroup != null && primaryGroup.getSuffix() != null && !primaryGroup.getSuffix().isEmpty()) {
+                resolvedSuffix = primaryGroup.getSuffix();
+                suffixSource = primaryGroup;
             } else {
-                resolvedSuffix = defaultSuffix;
+                // Fall back to highest priority/weight group
+                GroupPrefixSuffix best = findBestSuffix(groups);
+                if (best != null) {
+                    resolvedSuffix = best.value;
+                    suffixSource = best.group;
+                } else {
+                    resolvedSuffix = defaultSuffix;
+                }
             }
         }
         
@@ -309,6 +341,16 @@ public class PrefixSuffixResolver {
         }
         
         return new ResolveResult(resolvedPrefix, resolvedSuffix, prefixSource, suffixSource);
+    }
+    
+    /**
+     * Legacy overload for backward compatibility.
+     */
+    private ResolveResult resolveFromGroupList(
+            @NotNull List<Group> groups,
+            @Nullable String customPrefix,
+            @Nullable String customSuffix) {
+        return resolveFromGroupList(groups, customPrefix, customSuffix, null);
     }
     
     /**
@@ -387,9 +429,19 @@ public class PrefixSuffixResolver {
     }
     
     /**
-     * Resolves the primary group for a user (highest weight group).
+     * Resolves the primary group for a user.
+     * Uses the user's explicit primaryGroup setting if available,
+     * otherwise falls back to highest weight group.
      */
     private CompletableFuture<Group> resolvePrimaryGroup(@NotNull User user) {
+        // First, check if user has an explicit primary group set
+        String explicitPrimary = user.getPrimaryGroup();
+        if (explicitPrimary != null && !explicitPrimary.isEmpty()) {
+            return plugin.getStorage().loadGroup(explicitPrimary)
+                .thenApply(opt -> opt.orElse(null));
+        }
+        
+        // Fallback: find highest weight group from inherited groups
         Set<String> groupNames = user.getInheritedGroups();
         if (groupNames.isEmpty()) {
             return CompletableFuture.completedFuture(null);

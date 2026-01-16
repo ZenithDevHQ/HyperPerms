@@ -206,8 +206,17 @@ public class HyperPermsPlugin extends JavaPlugin {
 
         // Load user permissions async
         hyperPerms.getUserManager().loadUser(uuid).thenAccept(opt -> {
+            boolean isNewUser = opt.isEmpty();
             var user = opt.orElseGet(() -> hyperPerms.getUserManager().getOrCreateUser(uuid));
             user.setUsername(username);
+
+            // Save new users to persist their default group assignment
+            if (isNewUser) {
+                hyperPerms.getUserManager().saveUser(user).thenRun(() -> {
+                    Logger.debug("Created and saved new user %s with default group: %s", 
+                        username, user.getPrimaryGroup());
+                });
+            }
 
             // Prime the cache
             hyperPerms.getContextManager().getContexts(uuid);

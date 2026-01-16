@@ -222,24 +222,38 @@ public final class User implements PermissionHolder {
     @Override
     @NotNull
     public Set<String> getInheritedGroups() {
-        return nodes.stream()
+        Set<String> groups = nodes.stream()
                 .filter(Node::isGroupNode)
                 .filter(node -> !node.isExpired())
                 .map(Node::getGroupName)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toUnmodifiableSet());
+                .collect(Collectors.toCollection(HashSet::new));
+        
+        // Always include the primary group
+        if (primaryGroup != null && !primaryGroup.isEmpty()) {
+            groups.add(primaryGroup);
+        }
+        
+        return Collections.unmodifiableSet(groups);
     }
 
     @Override
     @NotNull
     public Set<String> getInheritedGroups(@NotNull ContextSet contexts) {
-        return nodes.stream()
+        Set<String> groups = nodes.stream()
                 .filter(Node::isGroupNode)
                 .filter(node -> !node.isExpired())
                 .filter(node -> node.appliesIn(contexts))
                 .map(Node::getGroupName)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toUnmodifiableSet());
+                .collect(Collectors.toCollection(HashSet::new));
+        
+        // Always include the primary group (applies in all contexts)
+        if (primaryGroup != null && !primaryGroup.isEmpty()) {
+            groups.add(primaryGroup);
+        }
+        
+        return Collections.unmodifiableSet(groups);
     }
 
     @Override
