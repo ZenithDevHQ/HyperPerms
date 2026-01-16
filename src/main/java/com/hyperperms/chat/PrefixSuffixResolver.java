@@ -108,6 +108,10 @@ public class PrefixSuffixResolver {
     
     /**
      * Resolves the prefix and suffix for a user by UUID.
+     * <p>
+     * Uses UserManager.loadUser() instead of direct storage access to ensure
+     * we get the in-memory cached user (if loaded) which may have more recent
+     * changes that haven't been persisted to storage yet.
      *
      * @param uuid the user's UUID
      * @return a future containing the resolution result
@@ -115,7 +119,7 @@ public class PrefixSuffixResolver {
     public CompletableFuture<ResolveResult> resolve(@NotNull UUID uuid) {
         Objects.requireNonNull(uuid, "uuid cannot be null");
         
-        return plugin.getStorage().loadUser(uuid)
+        return plugin.getUserManager().loadUser(uuid)
             .thenCompose(optUser -> {
                 if (optUser.isEmpty()) {
                     // User not found - return defaults

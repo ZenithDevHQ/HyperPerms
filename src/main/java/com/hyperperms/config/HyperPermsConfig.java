@@ -153,6 +153,18 @@ public final class HyperPermsConfig {
         webEditor.addProperty("timeoutSeconds", 10);
         root.add("webEditor", webEditor);
 
+        // Faction integration settings (HyFactions)
+        JsonObject factions = new JsonObject();
+        factions.addProperty("enabled", true);
+        factions.addProperty("noFactionDefault", "");
+        factions.addProperty("noRankDefault", "");
+        factions.addProperty("format", "%s");
+        factions.addProperty("prefixEnabled", true);
+        factions.addProperty("prefixFormat", "&7[&b%s&7] ");
+        factions.addProperty("showRank", false);
+        factions.addProperty("prefixWithRankFormat", "&7[&b%s&7|&e%r&7] ");
+        root.add("factions", factions);
+
         return root;
     }
 
@@ -369,6 +381,119 @@ public final class HyperPermsConfig {
      */
     public int getWebEditorTimeoutSeconds() {
         return getNestedInt("webEditor", "timeoutSeconds", 10);
+    }
+
+    // ==================== Faction Integration Settings ====================
+
+    /**
+     * Checks if HyFactions integration is enabled.
+     *
+     * @return true if faction integration is enabled
+     */
+    public boolean isFactionIntegrationEnabled() {
+        return getNestedBoolean("factions", "enabled", true);
+    }
+
+    /**
+     * Gets the default text to display when a player has no faction.
+     *
+     * @return the no-faction default text (empty string shows nothing)
+     */
+    public String getFactionNoFactionDefault() {
+        return getNestedString("factions", "noFactionDefault", "");
+    }
+
+    /**
+     * Gets the default text to display when a player has no rank.
+     *
+     * @return the no-rank default text
+     */
+    public String getFactionNoRankDefault() {
+        return getNestedString("factions", "noRankDefault", "");
+    }
+
+    /**
+     * Gets the format string for faction name display.
+     * Use %s as placeholder for the faction name.
+     * Example: "[%s] " would display as "[FactionName] "
+     *
+     * @return the faction format string
+     */
+    public String getFactionFormat() {
+        return getNestedString("factions", "format", "%s");
+    }
+
+    /**
+     * Checks if faction prefix should be automatically added to chat.
+     * When enabled, faction name is prepended to the player's prefix.
+     *
+     * @return true if automatic faction prefix is enabled
+     */
+    public boolean isFactionPrefixEnabled() {
+        return getNestedBoolean("factions", "prefixEnabled", true);
+    }
+
+    /**
+     * Gets the format string for the faction prefix in chat.
+     * Use %s for faction name and %r for rank (Owner, Officer, Member).
+     * Example: "&7[&b%s&7] " shows as "[FactionName] "
+     * Example: "&7[&b%s&7|&e%r&7] " shows as "[FactionName|Owner] "
+     *
+     * @return the faction prefix format string
+     */
+    public String getFactionPrefixFormat() {
+        return getNestedString("factions", "prefixFormat", "&7[&b%s&7] ");
+    }
+
+    /**
+     * Checks if the player's rank should be shown in the faction prefix.
+     *
+     * @return true if rank should be shown
+     */
+    public boolean isFactionShowRank() {
+        return getNestedBoolean("factions", "showRank", false);
+    }
+
+    /**
+     * Gets the format when both faction name and rank are shown.
+     * Use %s for faction name and %r for rank.
+     * Example: "&7[&b%s&7|&e%r&7] " shows as "[Warriors|Owner] "
+     *
+     * @return the faction prefix format with rank
+     */
+    public String getFactionPrefixWithRankFormat() {
+        return getNestedString("factions", "prefixWithRankFormat", "&7[&b%s&7|&e%r&7] ");
+    }
+
+    // ==================== WerChat Integration Settings ====================
+
+    /**
+     * Checks if WerChat integration is enabled.
+     *
+     * @return true if WerChat integration is enabled
+     */
+    public boolean isWerChatIntegrationEnabled() {
+        return getNestedBoolean("werchat", "enabled", true);
+    }
+
+    /**
+     * Gets the default text to display when a player has no channel.
+     *
+     * @return the no-channel default text (empty string shows nothing)
+     */
+    public String getWerChatNoChannelDefault() {
+        return getNestedString("werchat", "noChannelDefault", "");
+    }
+
+    /**
+     * Gets the format string for channel name display.
+     * Use %s as placeholder for the channel name.
+     * Example: "[%s] " would display as "[ChannelName] "
+     *
+     * @return the channel format string
+     */
+    public String getWerChatChannelFormat() {
+        return getNestedString("werchat", "channelFormat", "%s");
     }
 
     // ==================== Helper Methods ====================

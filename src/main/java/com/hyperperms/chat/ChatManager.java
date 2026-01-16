@@ -1,7 +1,10 @@
 package com.hyperperms.chat;
 
 import com.hyperperms.HyperPerms;
+import com.hyperperms.integration.FactionIntegration;
+import com.hyperperms.integration.WerChatIntegration;
 import com.hyperperms.model.User;
+import com.hyperperms.util.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,6 +58,14 @@ public class ChatManager {
     // Custom placeholder providers
     private final ConcurrentMap<String, BiFunction<UUID, String, String>> customPlaceholders = new ConcurrentHashMap<>();
     
+    // Faction integration (optional, set after construction)
+    @Nullable
+    private volatile FactionIntegration factionIntegration;
+    
+    // WerChat integration (optional, set after construction)
+    @Nullable
+    private volatile WerChatIntegration werchatIntegration;
+    
     /**
      * Creates a new ChatManager.
      *
@@ -81,6 +92,102 @@ public class ChatManager {
         
         // Online status (always true if they're chatting)
         registerCustomPlaceholder("online", (uuid, playerName) -> "true");
+    }
+    
+    /**
+     * Sets up faction integration for chat placeholders.
+     * This enables %faction%, %faction_rank%, and %faction_tag% placeholders.
+     *
+     * @param factionIntegration the faction integration instance
+     */
+    public void setFactionIntegration(@Nullable FactionIntegration factionIntegration) {
+        this.factionIntegration = factionIntegration;
+        
+        if (factionIntegration != null && factionIntegration.isAvailable()) {
+            registerFactionPlaceholders(factionIntegration);
+            Logger.info("Faction placeholders registered: %faction%, %faction_rank%, %faction_tag%");
+        }
+    }
+    
+    /**
+     * Gets the current faction integration.
+     *
+     * @return the faction integration, or null if not available
+     */
+    @Nullable
+    public FactionIntegration getFactionIntegration() {
+        return factionIntegration;
+    }
+    
+    /**
+     * Sets up WerChat integration for chat placeholders.
+     * This enables %werchat_channel%, %werchat_channel_nick%, etc. placeholders.
+     *
+     * @param werchatIntegration the WerChat integration instance
+     */
+    public void setWerChatIntegration(@Nullable WerChatIntegration werchatIntegration) {
+        this.werchatIntegration = werchatIntegration;
+        
+        if (werchatIntegration != null && werchatIntegration.isAvailable()) {
+            registerWerChatPlaceholders(werchatIntegration);
+            Logger.info("WerChat placeholders registered: %%werchat_channel%%, %%werchat_channel_nick%%, %%werchat_channel_color%%, %%werchat_channels%%, %%werchat_muted%%, %%werchat_moderator%%");
+        }
+    }
+    
+    /**
+     * Gets the current WerChat integration.
+     *
+     * @return the WerChat integration, or null if not available
+     */
+    @Nullable
+    public WerChatIntegration getWerChatIntegration() {
+        return werchatIntegration;
+    }
+    
+    /**
+     * Registers faction-related placeholders.
+     */
+    private void registerFactionPlaceholders(@NotNull FactionIntegration factions) {
+        // %faction% - The player's faction name (formatted)
+        registerCustomPlaceholder("faction", (uuid, playerName) -> 
+            factions.getFactionName(uuid));
+        
+        // %faction_rank% - The player's rank in their faction
+        registerCustomPlaceholder("faction_rank", (uuid, playerName) -> 
+            factions.getFactionRank(uuid));
+        
+        // %faction_tag% - Short faction tag
+        registerCustomPlaceholder("faction_tag", (uuid, playerName) -> 
+            factions.getFactionTag(uuid));
+    }
+    
+    /**
+     * Registers WerChat-related placeholders.
+     */
+    private void registerWerChatPlaceholders(@NotNull WerChatIntegration werchat) {
+        // %werchat_channel% - The player's focused channel name
+        registerCustomPlaceholder("werchat_channel", (uuid, playerName) -> 
+            werchat.getFocusedChannelName(uuid));
+        
+        // %werchat_channel_nick% - The channel's short nickname
+        registerCustomPlaceholder("werchat_channel_nick", (uuid, playerName) -> 
+            werchat.getFocusedChannelNick(uuid));
+        
+        // %werchat_channel_color% - The channel's color hex
+        registerCustomPlaceholder("werchat_channel_color", (uuid, playerName) -> 
+            werchat.getFocusedChannelColor(uuid));
+        
+        // %werchat_channels% - Number of channels the player is in
+        registerCustomPlaceholder("werchat_channels", (uuid, playerName) -> 
+            werchat.getChannelCount(uuid));
+        
+        // %werchat_muted% - Whether player is muted in their current channel
+        registerCustomPlaceholder("werchat_muted", (uuid, playerName) -> 
+            werchat.isMutedInChannel(uuid));
+        
+        // %werchat_moderator% - Whether player is a moderator in their current channel
+        registerCustomPlaceholder("werchat_moderator", (uuid, playerName) -> 
+            werchat.isModeratorInChannel(uuid));
     }
     
     /**
@@ -123,7 +230,7 @@ public class ChatManager {
         CachedDisplayData cached = displayDataCache.get(uuid);
         if (cached != null && !cached.isExpired()) {
             return CompletableFuture.completedFuture(
-                formatWithDisplayData(cached.displayData, playerName, message)
+                formatWithDisplayData(cached.displayData, playerName, message, uuid)
             );
         }
         
@@ -131,7 +238,7 @@ public class ChatManager {
         return loadDisplayData(uuid).thenApply(displayData -> {
             // Cache it
             displayDataCache.put(uuid, new CachedDisplayData(displayData));
-            return formatWithDisplayData(displayData, playerName, message);
+            return formatWithDisplayData(displayData, playerName, message, uuid);
         });
     }
     
@@ -150,8 +257,47 @@ public class ChatManager {
             @NotNull String playerName,
             @NotNull String message) {
         
-        // Build context
-        ChatFormatter.PlaceholderContext context = displayData.toPlaceholderContext(playerName)
+        return formatWithDisplayData(displayData, playerName, message, null);
+    }
+
+    /**
+     * Formats a chat message synchronously with pre-loaded display data and player UUID.
+     * Use this for best performance when display data is already available.
+     *
+     * @param displayData the pre-loaded display data
+     * @param playerName the player's display name
+     * @param message the raw message content
+     * @param playerUuid the player's UUID (for faction prefix lookup)
+     * @return the formatted message
+     */
+    @NotNull
+    public FormattedChatMessage formatWithDisplayData(
+            @NotNull PrefixSuffixResolver.DisplayData displayData,
+            @NotNull String playerName,
+            @NotNull String message,
+            @Nullable UUID playerUuid) {
+        
+        // Get the base prefix
+        String prefix = displayData.getPrefix();
+        
+        // Prepend faction prefix if available and enabled
+        if (playerUuid != null && factionIntegration != null && factionIntegration.isPrefixEnabled()) {
+            String factionPrefix = factionIntegration.getFormattedFactionPrefix(playerUuid);
+            if (!factionPrefix.isEmpty()) {
+                prefix = factionPrefix + prefix;
+            }
+        }
+        
+        // Build context with potentially modified prefix
+        ChatFormatter.PlaceholderContext context = ChatFormatter.PlaceholderContext.builder()
+            .playerName(playerName)
+            .displayName(playerName)
+            .uuid(playerUuid)
+            .prefix(prefix)
+            .suffix(displayData.getSuffix())
+            .primaryGroup(displayData.getPrimaryGroupName())
+            .extra("group_display_name", displayData.getPrimaryGroupDisplayName())
+            .extra("rank", String.valueOf(displayData.getRank()))
             .message(message)
             .build();
         
@@ -166,9 +312,13 @@ public class ChatManager {
     
     /**
      * Loads display data for a player.
+     * <p>
+     * Uses UserManager.loadUser() instead of direct storage access to ensure
+     * we get the in-memory cached user (if loaded) which may have more recent
+     * changes that haven't been persisted to storage yet.
      */
     private CompletableFuture<PrefixSuffixResolver.DisplayData> loadDisplayData(@NotNull UUID uuid) {
-        return plugin.getStorage().loadUser(uuid).thenCompose(optUser -> {
+        return plugin.getUserManager().loadUser(uuid).thenCompose(optUser -> {
             User user = optUser.orElseGet(() -> plugin.getUserManager().getOrCreateUser(uuid));
             return prefixSuffixResolver.resolveDisplayData(user);
         });

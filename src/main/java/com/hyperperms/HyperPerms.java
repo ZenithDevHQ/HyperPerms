@@ -17,6 +17,8 @@ import com.hyperperms.context.calculators.RegionContextCalculator;
 import com.hyperperms.context.calculators.ServerContextCalculator;
 import com.hyperperms.context.calculators.TimeContextCalculator;
 import com.hyperperms.context.calculators.WorldContextCalculator;
+import com.hyperperms.integration.FactionIntegration;
+import com.hyperperms.integration.WerChatIntegration;
 import com.hyperperms.registry.PermissionRegistry;
 import com.hyperperms.manager.GroupManagerImpl;
 import com.hyperperms.manager.TrackManagerImpl;
@@ -61,6 +63,14 @@ public final class HyperPerms implements HyperPermsAPI {
 
     // Chat system
     private com.hyperperms.chat.ChatManager chatManager;
+    
+    // Faction integration (optional - soft dependency on HyFactions)
+    @Nullable
+    private FactionIntegration factionIntegration;
+    
+    // WerChat integration (optional - soft dependency on WerChat)
+    @Nullable
+    private WerChatIntegration werchatIntegration;
 
     // Web editor
     private com.hyperperms.web.WebEditorService webEditorService;
@@ -181,6 +191,25 @@ public final class HyperPerms implements HyperPermsAPI {
             // Initialize chat manager
             chatManager = new com.hyperperms.chat.ChatManager(this);
             chatManager.loadConfig();
+
+            // Initialize faction integration (soft dependency on HyFactions)
+            factionIntegration = new FactionIntegration(this);
+            factionIntegration.setEnabled(config.isFactionIntegrationEnabled());
+            factionIntegration.setNoFactionDefault(config.getFactionNoFactionDefault());
+            factionIntegration.setNoRankDefault(config.getFactionNoRankDefault());
+            factionIntegration.setFactionFormat(config.getFactionFormat());
+            factionIntegration.setPrefixEnabled(config.isFactionPrefixEnabled());
+            factionIntegration.setPrefixFormat(config.getFactionPrefixFormat());
+            factionIntegration.setShowRank(config.isFactionShowRank());
+            factionIntegration.setPrefixWithRankFormat(config.getFactionPrefixWithRankFormat());
+            chatManager.setFactionIntegration(factionIntegration);
+            
+            // Initialize WerChat integration (soft dependency on WerChat)
+            werchatIntegration = new WerChatIntegration(this);
+            werchatIntegration.setEnabled(config.isWerChatIntegrationEnabled());
+            werchatIntegration.setNoChannelDefault(config.getWerChatNoChannelDefault());
+            werchatIntegration.setChannelFormat(config.getWerChatChannelFormat());
+            chatManager.setWerChatIntegration(werchatIntegration);
 
             // Initialize web editor service
             webEditorService = new com.hyperperms.web.WebEditorService(this);
@@ -628,6 +657,32 @@ public final class HyperPerms implements HyperPermsAPI {
     @Nullable
     public com.hyperperms.chat.ChatManager getChatManager() {
         return chatManager;
+    }
+
+    /**
+     * Gets the faction integration.
+     * <p>
+     * The faction integration provides HyFactions support for chat placeholders.
+     * Returns null if HyFactions is not installed.
+     *
+     * @return the faction integration, or null if HyFactions is not available
+     */
+    @Nullable
+    public FactionIntegration getFactionIntegration() {
+        return factionIntegration;
+    }
+
+    /**
+     * Gets the WerChat integration.
+     * <p>
+     * The WerChat integration provides WerChat support for chat channel placeholders.
+     * Returns null if WerChat is not installed.
+     *
+     * @return the WerChat integration, or null if WerChat is not available
+     */
+    @Nullable
+    public WerChatIntegration getWerChatIntegration() {
+        return werchatIntegration;
     }
 
     /**

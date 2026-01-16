@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.hyperperms'
-version = '2.0.4'
+version = '2.1.0'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -18,6 +18,9 @@ repositories {
 dependencies {
     // Hytale Server API (provided at runtime)
     compileOnly files('libs/HytaleServer.jar')
+
+    // Note: HyFactions is a soft dependency using pure reflection
+    // No compile-time dependency needed - just runtime class detection
 
     // JSON handling
     implementation 'com.google.code.gson:gson:2.11.0'

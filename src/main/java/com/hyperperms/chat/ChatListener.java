@@ -70,9 +70,10 @@ public class ChatListener {
         
         // Register as async GLOBAL handler since we may need to load data
         // and we want to handle ALL chat events regardless of key
-        // Use NORMAL priority so other plugins can modify before/after us
+        // Use FIRST priority to run BEFORE other chat plugins (like WerChat)
+        // We'll store our prefix data for other plugins to use
         chatEventRegistration = eventRegistry.registerAsyncGlobal(
-            EventPriority.NORMAL,
+            EventPriority.FIRST,
             PlayerChatEvent.class,
             this::onPlayerChatAsync
         );
@@ -140,8 +141,20 @@ public class ChatListener {
                 return chatManager.formatChatMessage(uuid, playerName, processedContent)
                     .thenApply(formattedMessage -> {
                         Logger.info("[Chat Debug] Formatted: " + formattedMessage.getFormatted());
-                        // Set our custom formatter
-                        event.setFormatter(new HyperPermsFormatter(formattedMessage));
+                        
+                        // Check if another plugin (like WerChat) already set a formatter
+                        PlayerChatEvent.Formatter existingFormatter = event.getFormatter();
+                        boolean hasCustomFormatter = existingFormatter != null 
+                            && existingFormatter != PlayerChatEvent.DEFAULT_FORMATTER;
+                        
+                        if (hasCustomFormatter) {
+                            // Wrap the existing formatter to inject our prefix/suffix
+                            Logger.info("[Chat Debug] Wrapping existing formatter with prefix/suffix");
+                            event.setFormatter(new WrappingFormatter(existingFormatter, formattedMessage));
+                        } else {
+                            // No other formatter - use our full formatter
+                            event.setFormatter(new HyperPermsFormatter(formattedMessage));
+                        }
                         return event;
                     })
                     .exceptionally(e -> {
@@ -530,6 +543,89 @@ public class ChatListener {
                 e.printStackTrace();
                 // Fallback to simple format
                 return Message.raw(sender.getUsername() + ": " + content);
+            }
+        }
+    }
+    
+    /**
+     * Formatter that wraps another plugin's formatter (like WerChat) and injects
+     * HyperPerms prefix/suffix into the output.
+     * <p>
+     * This allows both plugins to coexist: WerChat handles channel formatting,
+     * HyperPerms injects rank prefixes/suffixes.
+     */
+    private static class WrappingFormatter implements PlayerChatEvent.Formatter {
+        
+        private final PlayerChatEvent.Formatter wrapped;
+        private final ChatManager.FormattedChatMessage formattedMessage;
+        
+        WrappingFormatter(@NotNull PlayerChatEvent.Formatter wrapped,
+                         @NotNull ChatManager.FormattedChatMessage formattedMessage) {
+            this.wrapped = wrapped;
+            this.formattedMessage = formattedMessage;
+        }
+        
+        @Override
+        public Message format(PlayerRef sender, String content) {
+            try {
+                // Get the prefix and suffix from HyperPerms
+                String prefix = formattedMessage.getPrefix();
+                String suffix = formattedMessage.getSuffix();
+                
+                Logger.info("[Chat Debug] Wrapping formatter - prefix: '" + prefix + "', suffix: '" + suffix + "'");
+                
+                // Let the wrapped formatter (e.g., WerChat) format the message
+                Message wrappedResult = wrapped.format(sender, content);
+                
+                if (wrappedResult == null) {
+                    Logger.warn("[Chat] Wrapped formatter returned null");
+                    return Message.raw(sender.getUsername() + ": " + content);
+                }
+                
+                // If we have no prefix/suffix, just return the wrapped result
+                if ((prefix == null || prefix.isEmpty()) && (suffix == null || suffix.isEmpty())) {
+                    return wrappedResult;
+                }
+                
+                // Build the final message: wrapped output (channel) + prefix + rest
+                // WerChat outputs: [Global] PlayerName: message
+                // We want: [Global][Owner] PlayerName: message
+                // So we need to inject prefix after the channel tag
+                
+                // Get the raw text to find where to inject
+                String wrappedText = wrappedResult.getRawText();
+                
+                if (wrappedText != null && prefix != null && !prefix.isEmpty()) {
+                    // Find the player name in the wrapped output
+                    String playerName = sender.getUsername();
+                    int playerNameIndex = wrappedText.indexOf(playerName);
+                    
+                    if (playerNameIndex > 0) {
+                        // Insert prefix right before the player name
+                        // This turns "[Global] Player:" into "[Global][Owner] Player:"
+                        String before = wrappedText.substring(0, playerNameIndex);
+                        String after = wrappedText.substring(playerNameIndex);
+                        String newText = before + ColorUtil.colorize(prefix) + after;
+                        return toHytaleMessage(newText);
+                    }
+                }
+                
+                // Fallback: just append prefix after wrapped result
+                if (prefix != null && !prefix.isEmpty()) {
+                    Message prefixMsg = toHytaleMessage(ColorUtil.colorize(prefix));
+                    return Message.join(wrappedResult, prefixMsg);
+                }
+                
+                return wrappedResult;
+            } catch (Exception e) {
+                Logger.warn("[Chat] Error in wrapping formatter: " + e.getMessage());
+                e.printStackTrace();
+                // Fallback to wrapped result or simple format
+                try {
+                    return wrapped.format(sender, content);
+                } catch (Exception e2) {
+                    return Message.raw(sender.getUsername() + ": " + content);
+                }
             }
         }
     }
