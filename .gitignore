@@ -1,54 +1,24 @@
-# Gradle
-.gradle/
+# Build
 build/
-!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+bin/
+out/
 
 # IDE
 .idea/
 *.iml
-*.ipr
-*.iws
 .vscode/
-.project
-.classpath
-.settings/
-out/
-bin/
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Local configuration
-local.properties
-
-# Build outputs
-*.jar
-!libs/*.jar
-!gradle/wrapper/*.jar
-
-# Test data
-hyperperms-data/
-data/
-
-# Runtime
-run/
-server/
+# Dependencies
 libs/
 
-# Local settings
+# Runtime
+server/
+data/
+
+# Temp
+*.log
 .claude/
-
-# Downloaded archives
-*.zip
-
-# Temp files
-hytale_api_temp/
-hytale_classes.txt
-nul
-.playwright-mcp/
 .serena/
+.playwright-mcp/
+nul
