@@ -1,5 +1,5 @@
 {
-  "version": "2.2.0",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.0/HyperPerms-2.2.0.jar",
-  "changelog": "Added auto-update feature with admin notifications"
+  "version": "2.2.1",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.1/HyperPerms-2.2.1.jar",
+  "changelog": "Fixed prefix inheritance bug - prefixes now only come from user's direct groups, not inherited parent groups"
 }
