@@ -1,5 +1,5 @@
 {
-  "version": "2.2.4",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.4/HyperPerms-2.2.4.jar",
-  "changelog": "Fixed auto-updater crashing on Windows due to JAR file locking"
+  "version": "2.2.5",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.5/HyperPerms-2.2.5.jar",
+  "changelog": "Fix default group permissions for non-OP players"
 }
