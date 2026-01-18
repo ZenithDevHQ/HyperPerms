@@ -1,5 +1,5 @@
 {
-  "version": "2.2.2",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.2/HyperPerms-2.2.2.jar",
-  "changelog": "Fixed group prefixes not appearing in chat when edited via web editor"
+  "version": "2.2.3",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.3/HyperPerms-2.2.3.jar",
+  "changelog": "Fixed group deletion failing in web editor when group wasn't loaded in memory"
 }
