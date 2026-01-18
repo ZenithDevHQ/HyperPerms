@@ -19,6 +19,7 @@ import com.hyperperms.context.calculators.TimeContextCalculator;
 import com.hyperperms.context.calculators.WorldContextCalculator;
 import com.hyperperms.integration.FactionIntegration;
 import com.hyperperms.integration.WerChatIntegration;
+import com.hyperperms.update.UpdateChecker;
 import com.hyperperms.registry.PermissionRegistry;
 import com.hyperperms.manager.GroupManagerImpl;
 import com.hyperperms.manager.TrackManagerImpl;
@@ -45,6 +46,8 @@ import java.util.logging.Level;
  */
 public final class HyperPerms implements HyperPermsAPI {
 
+    public static final String VERSION = "2.2.5";
+    
     private static HyperPerms instance;
 
     private final Path dataDirectory;
@@ -77,6 +80,10 @@ public final class HyperPerms implements HyperPermsAPI {
 
     // Backup system
     private com.hyperperms.backup.BackupManager backupManager;
+
+    // Update checker
+    @Nullable
+    private UpdateChecker updateChecker;
 
     // Managers
     private UserManagerImpl userManager;
@@ -217,6 +224,20 @@ public final class HyperPerms implements HyperPermsAPI {
             // Initialize backup manager
             backupManager = new com.hyperperms.backup.BackupManager(this);
             backupManager.start();
+
+            // Initialize update checker
+            if (config.isUpdateCheckEnabled()) {
+                updateChecker = new UpdateChecker(this, VERSION, config.getUpdateCheckUrl());
+                // Check for updates asynchronously
+                updateChecker.checkForUpdates().thenAccept(info -> {
+                    if (info != null) {
+                        Logger.info("[Update] A new version is available: v%s (current: v%s)", info.version(), VERSION);
+                        if (info.changelog() != null && !info.changelog().isEmpty()) {
+                            Logger.info("[Update] Changelog: %s", info.changelog());
+                        }
+                    }
+                });
+            }
 
             // Start scheduled tasks
             scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -708,5 +729,38 @@ public final class HyperPerms implements HyperPermsAPI {
     @Nullable
     public com.hyperperms.web.WebEditorService getWebEditorService() {
         return webEditorService;
+    }
+
+
+    /**
+     * Gets the plugin version.
+     *
+     * @return the current plugin version
+     */
+    @NotNull
+    public String getVersion() {
+        return VERSION;
+    }
+
+    /**
+     * Gets the update checker.
+     * <p>
+     * The update checker handles checking for and downloading plugin updates.
+     *
+     * @return the update checker, or null if update checking is disabled
+     */
+    @Nullable
+    public UpdateChecker getUpdateChecker() {
+        return updateChecker;
+    }
+
+    /**
+     * Gets the plugin data directory.
+     *
+     * @return the data directory path
+     */
+    @NotNull
+    public Path getDataDirectory() {
+        return dataDirectory;
     }
 }

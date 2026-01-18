@@ -74,10 +74,8 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
 
     @Override
     public Set<String> getUserPermissions(UUID uuid) {
-        User user = hyperPerms.getUserManager().getUser(uuid);
-        if (user == null) {
-            return Collections.emptySet();
-        }
+        // Use getOrCreateUser to ensure new players get their default group permissions
+        User user = hyperPerms.getUserManager().getOrCreateUser(uuid);
 
         // Return all directly assigned permissions (without context filtering)
         return user.getNodes().stream()
@@ -167,10 +165,8 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
 
     @Override
     public Set<String> getGroupsForUser(UUID uuid) {
-        User user = hyperPerms.getUserManager().getUser(uuid);
-        if (user == null) {
-            return Collections.emptySet();
-        }
+        // Use getOrCreateUser to ensure new players get assigned to their default group
+        User user = hyperPerms.getUserManager().getOrCreateUser(uuid);
         return new HashSet<>(user.getInheritedGroups());
     }
 
