@@ -1,5 +1,5 @@
 {
-  "version": "2.2.3",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.3/HyperPerms-2.2.3.jar",
-  "changelog": "Fixed group deletion failing in web editor when group wasn't loaded in memory"
+  "version": "2.2.4",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.4/HyperPerms-2.2.4.jar",
+  "changelog": "Fixed auto-updater crashing on Windows due to JAR file locking"
 }
