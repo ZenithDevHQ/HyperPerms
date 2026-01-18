@@ -1,5 +1,5 @@
 {
-  "version": "2.2.1",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.1/HyperPerms-2.2.1.jar",
-  "changelog": "Fixed prefix inheritance bug - prefixes now only come from user's direct groups, not inherited parent groups"
+  "version": "2.2.2",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.2/HyperPerms-2.2.2.jar",
+  "changelog": "Fixed group prefixes not appearing in chat when edited via web editor"
 }
