@@ -1,5 +1,5 @@
 {
-  "version": "2.2.5",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.2.5/HyperPerms-2.2.5.jar",
-  "changelog": "Fix default group permissions for non-OP players"
+  "version": "2.3.1",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.3.1/HyperPerms-2.3.1.jar",
+  "changelog": "Fix faction placeholders, Fix permission inheritance for Hytale commands"
 }
