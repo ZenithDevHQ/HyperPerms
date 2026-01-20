@@ -1,5 +1,5 @@
 {
-  "version": "2.3.1",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.3.1/HyperPerms-2.3.1.jar",
-  "changelog": "Fix faction placeholders, Fix permission inheritance for Hytale commands"
+  "version": "2.3.2",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.3.2/HyperPerms-2.3.2.jar",
+  "changelog": "Fix faction placeholders, Fix permission inheritance, Fix default permission nodes, Add /hp resetgroups command"
 }
