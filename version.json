@@ -1,5 +1,5 @@
 {
-  "version": "2.3.3",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.3.3/HyperPerms-2.3.3.jar",
-  "changelog": "Fix ChatAPI.getPrefix() returning empty for external plugins, Fix web editor null pointer exceptions on /hp apply, Improved JSON parsing robustness"
+  "version": "2.3.4",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.3.4/HyperPerms-2.3.4.jar",
+  "changelog": "Fix ChatAPI race condition causing empty prefixes, Add ChatAPI preload on player connect, Improve cache handling to prevent partial entries"
 }
