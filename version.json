@@ -1,5 +1,5 @@
 {
-  "version": "2.3.2",
-  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.3.2/HyperPerms-2.3.2.jar",
-  "changelog": "Fix faction placeholders, Fix permission inheritance, Fix default permission nodes, Add /hp resetgroups command"
+  "version": "2.3.3",
+  "download_url": "https://github.com/ZenithDevHQ/HyperPerms/releases/download/v2.3.3/HyperPerms-2.3.3.jar",
+  "changelog": "Fix ChatAPI.getPrefix() returning empty for external plugins, Fix web editor null pointer exceptions on /hp apply, Improved JSON parsing robustness"
 }
