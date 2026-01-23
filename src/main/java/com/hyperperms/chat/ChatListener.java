@@ -109,47 +109,37 @@ public class ChatListener {
         
         return futureEvent.thenCompose(event -> {
             try {
-                Logger.info("[Chat Debug] Chat event received, cancelled=" + event.isCancelled());
-                
                 // If chat formatting is disabled or event is cancelled, pass through
                 if (!chatManager.isEnabled()) {
-                    Logger.info("[Chat Debug] Chat manager disabled, passing through");
                     return CompletableFuture.completedFuture(event);
                 }
-                
+
                 if (event.isCancelled()) {
-                    Logger.info("[Chat Debug] Event cancelled, passing through");
                     return CompletableFuture.completedFuture(event);
                 }
-                
+
                 PlayerRef sender = event.getSender();
                 if (sender == null) {
-                    Logger.warn("[Chat Debug] Sender is null, passing through");
                     return CompletableFuture.completedFuture(event);
                 }
-                
+
                 UUID uuid = sender.getUuid();
                 String playerName = sender.getUsername();
                 String content = event.getContent();
-                
-                Logger.info("[Chat Debug] Processing chat from " + playerName + ": " + content);
-                
+
                 // Process player colors in message if allowed
                 String processedContent = processPlayerColors(uuid, content);
-                
+
                 // Format the chat message
                 return chatManager.formatChatMessage(uuid, playerName, processedContent)
                     .thenApply(formattedMessage -> {
-                        Logger.info("[Chat Debug] Formatted: " + formattedMessage.getFormatted());
-                        
                         // Check if another plugin (like WerChat) already set a formatter
                         PlayerChatEvent.Formatter existingFormatter = event.getFormatter();
-                        boolean hasCustomFormatter = existingFormatter != null 
+                        boolean hasCustomFormatter = existingFormatter != null
                             && existingFormatter != PlayerChatEvent.DEFAULT_FORMATTER;
-                        
+
                         if (hasCustomFormatter) {
                             // Wrap the existing formatter to inject our prefix/suffix
-                            Logger.info("[Chat Debug] Wrapping existing formatter with prefix/suffix");
                             event.setFormatter(new WrappingFormatter(existingFormatter, formattedMessage));
                         } else {
                             // No other formatter - use our full formatter
@@ -521,8 +511,7 @@ public class ChatListener {
         public Message format(PlayerRef sender, String content) {
             try {
                 String formatted = formattedMessage.getFormatted();
-                Logger.info("[Chat Debug] Formatting message: " + formatted);
-                
+
                 if (formatted == null || formatted.isEmpty()) {
                     Logger.warn("[Chat] Formatted message was empty, using fallback");
                     String fallback = sender.getUsername() + ": " + content;
@@ -571,9 +560,7 @@ public class ChatListener {
                 // Get the prefix and suffix from HyperPerms
                 String prefix = formattedMessage.getPrefix();
                 String suffix = formattedMessage.getSuffix();
-                
-                Logger.info("[Chat Debug] Wrapping formatter - prefix: '" + prefix + "', suffix: '" + suffix + "'");
-                
+
                 // Let the wrapped formatter (e.g., WerChat) format the message
                 Message wrappedResult = wrapped.format(sender, content);
                 

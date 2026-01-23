@@ -196,13 +196,16 @@ public class ChatManager {
      * @param placeholder the placeholder name (without %)
      * @param provider the provider function (uuid, playerName) -> value
      */
-    public void registerCustomPlaceholder(@NotNull String placeholder, 
+    public void registerCustomPlaceholder(@NotNull String placeholder,
                                           @NotNull BiFunction<UUID, String, String> provider) {
         customPlaceholders.put(placeholder.toLowerCase(), provider);
         chatFormatter.registerPlaceholder(placeholder, ctx -> {
-            // Context doesn't have UUID, so we use a thread-local or similar
-            // For now, custom placeholders need to be resolved separately
-            return "{" + placeholder + "}"; // Will be replaced in format method
+            UUID uuid = ctx.getUuid();
+            if (uuid != null) {
+                String result = provider.apply(uuid, ctx.getPlayerName());
+                return result != null ? result : "";
+            }
+            return "";
         });
     }
     

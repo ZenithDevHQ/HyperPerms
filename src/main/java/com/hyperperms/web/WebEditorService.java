@@ -304,22 +304,35 @@ public final class WebEditorService {
      * Parses a group creation change from the API format.
      */
     private Change parseGroupChange(JsonObject groupObj, Change.Type type) {
-        String name = groupObj.get("name").getAsString();
-        String displayName = groupObj.has("displayName") && !groupObj.get("displayName").isJsonNull()
-                ? groupObj.get("displayName").getAsString() : null;
-        int weight = groupObj.has("weight") ? groupObj.get("weight").getAsInt() : 0;
-        String prefix = groupObj.has("prefix") && !groupObj.get("prefix").isJsonNull()
-                ? groupObj.get("prefix").getAsString() : null;
-        String suffix = groupObj.has("suffix") && !groupObj.get("suffix").isJsonNull()
-                ? groupObj.get("suffix").getAsString() : null;
+        String name = safeGetString(groupObj, "name");
+        if (name == null || name.isEmpty()) {
+            Logger.warn("Group change missing 'name' field: " + groupObj);
+            return null;
+        }
+        String displayName = safeGetString(groupObj, "displayName");
+        int weight = safeGetInt(groupObj, "weight", 0);
+        String prefix = safeGetString(groupObj, "prefix");
+        String suffix = safeGetString(groupObj, "suffix");
 
         List<Change.PermissionNode> permissions = new ArrayList<>();
         if (groupObj.has("permissions") && groupObj.get("permissions").isJsonArray()) {
             for (JsonElement elem : groupObj.getAsJsonArray("permissions")) {
+                if (!elem.isJsonObject()) continue;
                 JsonObject permObj = elem.getAsJsonObject();
-                String node = permObj.get("node").getAsString();
-                boolean value = !permObj.has("value") || permObj.get("value").getAsBoolean();
-                Map<String, String> contexts = permObj.has("contexts")
+                String node = safeGetString(permObj, "node");
+                if (node == null || node.isEmpty()) {
+                    // Also try "permission" or "name" field
+                    node = safeGetString(permObj, "permission");
+                    if (node == null || node.isEmpty()) {
+                        node = safeGetString(permObj, "name");
+                    }
+                }
+                if (node == null || node.isEmpty()) {
+                    Logger.warn("Skipping permission with no node field: " + permObj);
+                    continue;
+                }
+                boolean value = safeGetBoolean(permObj, "value", true);
+                Map<String, String> contexts = permObj.has("contexts") && !permObj.get("contexts").isJsonNull()
                         ? parseContexts(permObj.getAsJsonObject("contexts"))
                         : Collections.emptyMap();
                 permissions.add(new Change.PermissionNode(node, value, contexts));
@@ -346,18 +359,19 @@ public final class WebEditorService {
      */
     private List<Change> parseGroupUpdateChanges(JsonObject groupObj) {
         List<Change> changes = new ArrayList<>();
-        String groupName = groupObj.get("name").getAsString();
+        String groupName = safeGetString(groupObj, "name");
+        if (groupName == null || groupName.isEmpty()) {
+            Logger.warn("Group update missing 'name' field: " + groupObj);
+            return changes;
+        }
 
         // Create full group data - the ChangeApplier will handle create vs update
         Change.GroupData groupData = new Change.GroupData(
             groupName,
-            groupObj.has("displayName") && !groupObj.get("displayName").isJsonNull() 
-                ? groupObj.get("displayName").getAsString() : null,
-            groupObj.has("weight") ? groupObj.get("weight").getAsInt() : 0,
-            groupObj.has("prefix") && !groupObj.get("prefix").isJsonNull() 
-                ? groupObj.get("prefix").getAsString() : null,
-            groupObj.has("suffix") && !groupObj.get("suffix").isJsonNull() 
-                ? groupObj.get("suffix").getAsString() : null,
+            safeGetString(groupObj, "displayName"),
+            safeGetInt(groupObj, "weight", 0),
+            safeGetString(groupObj, "prefix"),
+            safeGetString(groupObj, "suffix"),
             parsePermissionNodes(groupObj),
             groupObj.has("parents") && groupObj.get("parents").isJsonArray()
                 ? parseStringList(groupObj.getAsJsonArray("parents"))
@@ -414,20 +428,24 @@ public final class WebEditorService {
      */
     private List<Change> parseUserUpdateChanges(JsonObject userObj) {
         List<Change> changes = new ArrayList<>();
-        String uuid = userObj.get("uuid").getAsString();
-        String username = userObj.has("username") ? userObj.get("username").getAsString() : uuid;
+        String uuid = safeGetString(userObj, "uuid");
+        if (uuid == null || uuid.isEmpty()) {
+            Logger.warn("User update missing 'uuid' field: " + userObj);
+            return changes;
+        }
+        String username = safeGetString(userObj, "username");
+        if (username == null || username.isEmpty()) {
+            username = uuid;
+        }
         
         Logger.info("Parsing user update for: " + username + " (" + uuid + ")");
 
         // Get all the user data from the API
-        String primaryGroup = userObj.has("primaryGroup") && !userObj.get("primaryGroup").isJsonNull()
-            ? userObj.get("primaryGroup").getAsString() : null;
+        String primaryGroup = safeGetString(userObj, "primaryGroup");
         
         // Get custom prefix/suffix
-        String customPrefix = userObj.has("customPrefix") && !userObj.get("customPrefix").isJsonNull()
-            ? userObj.get("customPrefix").getAsString() : null;
-        String customSuffix = userObj.has("customSuffix") && !userObj.get("customSuffix").isJsonNull()
-            ? userObj.get("customSuffix").getAsString() : null;
+        String customPrefix = safeGetString(userObj, "customPrefix");
+        String customSuffix = safeGetString(userObj, "customSuffix");
         
         List<Change.PermissionNode> permissions = parsePermissionNodes(userObj);
         
@@ -507,7 +525,11 @@ public final class WebEditorService {
      * Parses a track change from the API format.
      */
     private Change parseTrackChange(JsonObject trackObj, Change.Type type) {
-        String name = trackObj.get("name").getAsString();
+        String name = safeGetString(trackObj, "name");
+        if (name == null || name.isEmpty()) {
+            Logger.warn("Track change missing 'name' field: " + trackObj);
+            return null;
+        }
         List<String> groups = trackObj.has("groups") && trackObj.get("groups").isJsonArray()
                 ? parseStringList(trackObj.getAsJsonArray("groups"))
                 : Collections.emptyList();
@@ -522,8 +544,42 @@ public final class WebEditorService {
                 .build();
     }
 
+    /**
+     * Safely gets a string from a JsonObject, returning null if the field is missing or null.
+     */
+    private String safeGetString(JsonObject obj, String field) {
+        if (!obj.has(field)) return null;
+        JsonElement elem = obj.get(field);
+        if (elem == null || elem.isJsonNull()) return null;
+        return elem.getAsString();
+    }
+
+    /**
+     * Safely gets an int from a JsonObject, returning the default value if the field is missing or null.
+     */
+    private int safeGetInt(JsonObject obj, String field, int defaultValue) {
+        if (!obj.has(field)) return defaultValue;
+        JsonElement elem = obj.get(field);
+        if (elem == null || elem.isJsonNull()) return defaultValue;
+        return elem.getAsInt();
+    }
+
+    /**
+     * Safely gets a boolean from a JsonObject, returning the default value if the field is missing or null.
+     */
+    private boolean safeGetBoolean(JsonObject obj, String field, boolean defaultValue) {
+        if (!obj.has(field)) return defaultValue;
+        JsonElement elem = obj.get(field);
+        if (elem == null || elem.isJsonNull()) return defaultValue;
+        return elem.getAsBoolean();
+    }
+
     private Change parseChange(JsonObject obj) {
-        String typeStr = obj.get("type").getAsString();
+        String typeStr = safeGetString(obj, "type");
+        if (typeStr == null) {
+            Logger.warn("Change object missing 'type' field: " + obj);
+            return null;
+        }
         Change.Type type = parseChangeType(typeStr);
         if (type == null) {
             Logger.warn("Unknown change type: " + typeStr);
@@ -533,74 +589,95 @@ public final class WebEditorService {
         Change.Builder builder = Change.builder(type);
 
         // Common fields
-        if (obj.has("targetType")) {
-            builder.targetType(obj.get("targetType").getAsString());
+        String targetType = safeGetString(obj, "targetType");
+        if (targetType != null) {
+            builder.targetType(targetType);
         }
-        if (obj.has("target")) {
-            builder.target(obj.get("target").getAsString());
+        String target = safeGetString(obj, "target");
+        if (target != null) {
+            builder.target(target);
         }
 
         // Permission fields
-        if (obj.has("node")) {
-            builder.node(obj.get("node").getAsString());
+        String node = safeGetString(obj, "node");
+        if (node != null) {
+            builder.node(node);
         }
-        if (obj.has("value")) {
+        if (obj.has("value") && !obj.get("value").isJsonNull()) {
             builder.value(obj.get("value").getAsBoolean());
         }
-        if (obj.has("oldValue") && !obj.get("oldValue").isJsonNull()) {
-            builder.oldValue(obj.get("oldValue").getAsBoolean());
+        if (obj.has("oldValue") && !obj.get("oldValue").isJsonNull() && obj.get("oldValue").isJsonPrimitive()) {
+            if (obj.get("oldValue").getAsJsonPrimitive().isBoolean()) {
+                builder.oldValue(obj.get("oldValue").getAsBoolean());
+            }
         }
-        if (obj.has("newValue") && !obj.get("newValue").isJsonNull()) {
-            builder.newValue(obj.get("newValue").getAsBoolean());
+        if (obj.has("newValue") && !obj.get("newValue").isJsonNull() && obj.get("newValue").isJsonPrimitive()) {
+            if (obj.get("newValue").getAsJsonPrimitive().isBoolean()) {
+                builder.newValue(obj.get("newValue").getAsBoolean());
+            }
         }
-        if (obj.has("contexts") && obj.get("contexts").isJsonObject()) {
+        if (obj.has("contexts") && !obj.get("contexts").isJsonNull() && obj.get("contexts").isJsonObject()) {
             builder.contexts(parseContexts(obj.getAsJsonObject("contexts")));
         }
 
         // Group fields
-        if (obj.has("groupName")) {
-            builder.groupName(obj.get("groupName").getAsString());
+        String groupName = safeGetString(obj, "groupName");
+        if (groupName != null) {
+            builder.groupName(groupName);
         }
-        if (obj.has("group") && obj.get("group").isJsonObject()) {
-            builder.group(parseGroupData(obj.getAsJsonObject("group")));
+        if (obj.has("group") && !obj.get("group").isJsonNull() && obj.get("group").isJsonObject()) {
+            Change.GroupData groupData = parseGroupData(obj.getAsJsonObject("group"));
+            if (groupData != null) {
+                builder.group(groupData);
+            }
         }
 
         // Parent fields
-        if (obj.has("parent")) {
-            builder.parent(obj.get("parent").getAsString());
+        String parent = safeGetString(obj, "parent");
+        if (parent != null) {
+            builder.parent(parent);
         }
 
         // Meta fields
-        if (obj.has("key")) {
-            builder.key(obj.get("key").getAsString());
+        String key = safeGetString(obj, "key");
+        if (key != null) {
+            builder.key(key);
         }
         // Handle both meta changes (string) and permission changes (boolean)
-        if (obj.has("oldValue") && obj.get("oldValue").isJsonPrimitive() && obj.get("oldValue").getAsJsonPrimitive().isString()) {
-            builder.metaOldValue(obj.get("oldValue").getAsString());
+        if (obj.has("oldValue") && !obj.get("oldValue").isJsonNull() && obj.get("oldValue").isJsonPrimitive()) {
+            if (obj.get("oldValue").getAsJsonPrimitive().isString()) {
+                builder.metaOldValue(obj.get("oldValue").getAsString());
+            }
         }
-        if (obj.has("newValue") && obj.get("newValue").isJsonPrimitive() && obj.get("newValue").getAsJsonPrimitive().isString()) {
-            builder.metaNewValue(obj.get("newValue").getAsString());
+        if (obj.has("newValue") && !obj.get("newValue").isJsonNull() && obj.get("newValue").isJsonPrimitive()) {
+            if (obj.get("newValue").getAsJsonPrimitive().isString()) {
+                builder.metaNewValue(obj.get("newValue").getAsString());
+            }
         }
 
         // Weight fields
-        if (obj.has("oldWeight")) {
+        if (obj.has("oldWeight") && !obj.get("oldWeight").isJsonNull()) {
             builder.oldWeight(obj.get("oldWeight").getAsInt());
         }
-        if (obj.has("newWeight")) {
+        if (obj.has("newWeight") && !obj.get("newWeight").isJsonNull()) {
             builder.newWeight(obj.get("newWeight").getAsInt());
         }
 
         // Track fields
-        if (obj.has("trackName")) {
-            builder.trackName(obj.get("trackName").getAsString());
+        String trackName = safeGetString(obj, "trackName");
+        if (trackName != null) {
+            builder.trackName(trackName);
         }
-        if (obj.has("track") && obj.get("track").isJsonObject()) {
-            builder.track(parseTrackData(obj.getAsJsonObject("track")));
+        if (obj.has("track") && !obj.get("track").isJsonNull() && obj.get("track").isJsonObject()) {
+            Change.TrackData trackData = parseTrackData(obj.getAsJsonObject("track"));
+            if (trackData != null) {
+                builder.track(trackData);
+            }
         }
-        if (obj.has("oldGroups") && obj.get("oldGroups").isJsonArray()) {
+        if (obj.has("oldGroups") && !obj.get("oldGroups").isJsonNull() && obj.get("oldGroups").isJsonArray()) {
             builder.oldGroups(parseStringList(obj.getAsJsonArray("oldGroups")));
         }
-        if (obj.has("newGroups") && obj.get("newGroups").isJsonArray()) {
+        if (obj.has("newGroups") && !obj.get("newGroups").isJsonNull() && obj.get("newGroups").isJsonArray()) {
             builder.newGroups(parseStringList(obj.getAsJsonArray("newGroups")));
         }
 
@@ -634,29 +711,38 @@ public final class WebEditorService {
     }
 
     private Change.GroupData parseGroupData(JsonObject obj) {
-        String name = obj.get("name").getAsString();
-        String displayName = obj.has("displayName") && !obj.get("displayName").isJsonNull() 
-                ? obj.get("displayName").getAsString() : null;
-        int weight = obj.has("weight") ? obj.get("weight").getAsInt() : 0;
-        String prefix = obj.has("prefix") && !obj.get("prefix").isJsonNull() 
-                ? obj.get("prefix").getAsString() : null;
-        String suffix = obj.has("suffix") && !obj.get("suffix").isJsonNull() 
-                ? obj.get("suffix").getAsString() : null;
+        String name = safeGetString(obj, "name");
+        if (name == null || name.isEmpty()) {
+            Logger.warn("GroupData missing 'name' field: " + obj);
+            return null;
+        }
+        String displayName = safeGetString(obj, "displayName");
+        int weight = safeGetInt(obj, "weight", 0);
+        String prefix = safeGetString(obj, "prefix");
+        String suffix = safeGetString(obj, "suffix");
 
         List<Change.PermissionNode> permissions = new ArrayList<>();
         if (obj.has("permissions") && obj.get("permissions").isJsonArray()) {
             for (JsonElement elem : obj.getAsJsonArray("permissions")) {
+                if (!elem.isJsonObject()) continue;
                 JsonObject permObj = elem.getAsJsonObject();
-                String node = permObj.get("node").getAsString();
-                boolean value = permObj.has("value") && permObj.get("value").getAsBoolean();
-                Map<String, String> contexts = permObj.has("contexts") 
+                String node = safeGetString(permObj, "node");
+                if (node == null || node.isEmpty()) {
+                    node = safeGetString(permObj, "permission");
+                }
+                if (node == null || node.isEmpty()) {
+                    Logger.warn("Skipping permission with no node field in parseGroupData: " + permObj);
+                    continue;
+                }
+                boolean value = safeGetBoolean(permObj, "value", true);
+                Map<String, String> contexts = permObj.has("contexts") && !permObj.get("contexts").isJsonNull()
                         ? parseContexts(permObj.getAsJsonObject("contexts")) 
                         : Collections.emptyMap();
                 permissions.add(new Change.PermissionNode(node, value, contexts));
             }
         }
 
-        List<String> parents = obj.has("parents") 
+        List<String> parents = obj.has("parents") && obj.get("parents").isJsonArray()
                 ? parseStringList(obj.getAsJsonArray("parents")) 
                 : Collections.emptyList();
 
@@ -664,8 +750,12 @@ public final class WebEditorService {
     }
 
     private Change.TrackData parseTrackData(JsonObject obj) {
-        String name = obj.get("name").getAsString();
-        List<String> groups = obj.has("groups") 
+        String name = safeGetString(obj, "name");
+        if (name == null || name.isEmpty()) {
+            Logger.warn("TrackData missing 'name' field: " + obj);
+            return null;
+        }
+        List<String> groups = obj.has("groups") && obj.get("groups").isJsonArray()
                 ? parseStringList(obj.getAsJsonArray("groups")) 
                 : Collections.emptyList();
         return new Change.TrackData(name, groups);

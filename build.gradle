@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.hyperperms'
-version = '2.2.5'
+version = '2.3.5'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -43,10 +43,12 @@ shadowJar {
     relocate 'com.google.gson', 'com.hyperperms.lib.gson'
     relocate 'com.github.benmanes.caffeine', 'com.hyperperms.lib.caffeine'
 
-    // Minimize JAR but exclude Caffeine - its cache implementation classes
-    // (SSMS, SSLMS, SSLMSW, SILMS, etc.) are loaded via reflection
+    // Minimize JAR but exclude dependencies that use reflection-loaded classes
+    // Caffeine: cache implementation classes (SSMS, SSLMS, SSLMSW, SILMS, etc.)
+    // Gson: annotation classes like JsonAdapter are loaded via reflection
     minimize {
         exclude(dependency('com.github.ben-manes.caffeine:caffeine:.*'))
+        exclude(dependency('com.google.code.gson:gson:.*'))
     }
 }
 

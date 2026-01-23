@@ -12,6 +12,13 @@ public final class Logger {
     private static final String PREFIX = "[HyperPerms] ";
     private static java.util.logging.Logger logger;
 
+    /**
+     * Enable this flag to output detailed permission check logs at INFO level.
+     * Useful for debugging permission issues between plugins.
+     * Set via /hp debug command or programmatically.
+     */
+    private static volatile boolean permissionDebugEnabled = false;
+
     private Logger() {}
 
     /**
@@ -113,7 +120,10 @@ public final class Logger {
      * @param message the message
      */
     public static void debug(@NotNull String message) {
-        if (logger != null) {
+        if (permissionDebugEnabled) {
+            // When permission debug is enabled, log at INFO level for visibility
+            info("[DEBUG] " + message);
+        } else if (logger != null) {
             logger.fine(PREFIX + "[DEBUG] " + message);
         }
     }
@@ -126,5 +136,29 @@ public final class Logger {
      */
     public static void debug(@NotNull String message, Object... args) {
         debug(String.format(message, args));
+    }
+
+    /**
+     * Enables or disables permission debug mode.
+     * When enabled, all debug logs are output at INFO level for easy visibility.
+     *
+     * @param enabled true to enable permission debug logging
+     */
+    public static void setPermissionDebugEnabled(boolean enabled) {
+        permissionDebugEnabled = enabled;
+        if (enabled) {
+            info("Permission debug logging ENABLED - detailed permission checks will be logged");
+        } else {
+            info("Permission debug logging DISABLED");
+        }
+    }
+
+    /**
+     * Checks if permission debug mode is enabled.
+     *
+     * @return true if enabled
+     */
+    public static boolean isPermissionDebugEnabled() {
+        return permissionDebugEnabled;
     }
 }

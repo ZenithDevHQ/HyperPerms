@@ -288,6 +288,42 @@ public final class PermissionRegistry {
         byCategory.clear();
     }
 
+
+    /**
+     * Gets all known permissions that match a wildcard pattern.
+     * <p>
+     * This is used to expand wildcards into concrete permissions for
+     * systems that don't support wildcard matching (like Hytale's
+     * PermissionProvider interface).
+     *
+     * @param wildcard the wildcard pattern (e.g., "hyperhomes.*")
+     * @return set of matching permission nodes
+     */
+    @NotNull
+    public Set<String> getMatchingPermissions(@NotNull String wildcard) {
+        String lowerWildcard = wildcard.toLowerCase();
+
+        // Universal wildcard - return all non-wildcard permissions
+        if (lowerWildcard.equals("*")) {
+            return permissions.values().stream()
+                    .map(PermissionInfo::getPermission)
+                    .filter(p -> !p.contains("*"))
+                    .collect(Collectors.toCollection(HashSet::new));
+        }
+
+        // Prefix wildcard (e.g., "hyperhomes.*")
+        if (lowerWildcard.endsWith(".*")) {
+            String prefix = lowerWildcard.substring(0, lowerWildcard.length() - 1); // "hyperhomes."
+            return permissions.values().stream()
+                    .map(PermissionInfo::getPermission)
+                    .filter(p -> p.startsWith(prefix) && !p.equals(lowerWildcard))
+                    .collect(Collectors.toCollection(HashSet::new));
+        }
+
+        // Not a wildcard - return empty set
+        return Collections.emptySet();
+    }
+
     /**
      * Registers HyperPerms' built-in permissions.
      */
@@ -347,6 +383,152 @@ public final class PermissionRegistry {
         register("hyperperms.chat.color", "Use color codes in chat", "chat");
         register("hyperperms.chat.format", "Use formatting codes in chat", "chat");
 
+        // Register Hytale permissions for wildcard expansion
+        registerHytalePermissions();
+
+        // Register HyperHomes permissions for wildcard expansion
+        registerHyperHomesPermissions();
+
         Logger.info("Registered %d built-in permissions", size());
+    }
+
+    /**
+     * Registers known Hytale permissions for wildcard expansion.
+     * <p>
+     * IMPORTANT: Hytale uses "hytale.command.*" format (NOT "hytale.system.command.*")
+     * and checks for ".self" suffix for self-targeting commands.
+     */
+    private void registerHytalePermissions() {
+        // Hytale wildcards
+        register("hytale.*", "Full access to all Hytale features", "hytale", "Hytale");
+        register("hytale.command.*", "Access to all Hytale commands", "hytale", "Hytale");
+        register("hytale.editor.*", "Access to all editor features", "hytale", "Hytale");
+        register("hytale.camera.*", "Access to all camera features", "hytale", "Hytale");
+
+        // ==================== Command Permissions (hytale.command.*) ====================
+        // ACTUAL format Hytale uses - discovered via debug logging
+
+        // Game mode commands - Hytale checks "hytale.command.gamemode.self" for /gm c
+        register("hytale.command.gamemode", "Change game mode", "hytale", "Hytale");
+        register("hytale.command.gamemode.*", "All gamemode permissions", "hytale", "Hytale");
+        register("hytale.command.gamemode.self", "Change your own game mode", "hytale", "Hytale");
+        register("hytale.command.gamemode.self.*", "All self gamemode permissions", "hytale", "Hytale");
+        register("hytale.command.gamemode.others", "Change other players' game mode", "hytale", "Hytale");
+        register("hytale.command.gamemode.survival", "Switch to survival mode", "hytale", "Hytale");
+        register("hytale.command.gamemode.creative", "Switch to creative mode", "hytale", "Hytale");
+        register("hytale.command.gamemode.adventure", "Switch to adventure mode", "hytale", "Hytale");
+        register("hytale.command.gamemode.spectator", "Switch to spectator mode", "hytale", "Hytale");
+
+        // Teleportation commands
+        register("hytale.command.tp", "Teleport command", "hytale", "Hytale");
+        register("hytale.command.tp.*", "All teleport permissions", "hytale", "Hytale");
+        register("hytale.command.tp.self", "Teleport yourself", "hytale", "Hytale");
+        register("hytale.command.tp.others", "Teleport other players", "hytale", "Hytale");
+        register("hytale.command.spawn", "Spawn commands", "hytale", "Hytale");
+        register("hytale.command.spawn.*", "All spawn permissions", "hytale", "Hytale");
+        register("hytale.command.spawn.teleport", "Teleport to spawn", "hytale", "Hytale");
+        register("hytale.command.spawn.set", "Set spawn point", "hytale", "Hytale");
+
+        // Item commands
+        register("hytale.command.give", "Give items to players", "hytale", "Hytale");
+        register("hytale.command.give.*", "All give permissions", "hytale", "Hytale");
+        register("hytale.command.give.self", "Give items to yourself", "hytale", "Hytale");
+        register("hytale.command.give.others", "Give items to others", "hytale", "Hytale");
+        register("hytale.command.clear", "Clear player inventory", "hytale", "Hytale");
+
+        // Player management
+        register("hytale.command.kick", "Kick players from server", "hytale", "Hytale");
+        register("hytale.command.ban", "Ban players from server", "hytale", "Hytale");
+        register("hytale.command.unban", "Unban players", "hytale", "Hytale");
+        register("hytale.command.whitelist", "Manage whitelist", "hytale", "Hytale");
+        register("hytale.command.whitelist.*", "All whitelist permissions", "hytale", "Hytale");
+
+        // World commands
+        register("hytale.command.time", "Set world time", "hytale", "Hytale");
+        register("hytale.command.time.*", "All time permissions", "hytale", "Hytale");
+        register("hytale.command.weather", "Set weather", "hytale", "Hytale");
+        register("hytale.command.weather.*", "All weather permissions", "hytale", "Hytale");
+
+        // Entity commands
+        register("hytale.command.kill", "Kill entities", "hytale", "Hytale");
+        register("hytale.command.kill.*", "All kill permissions", "hytale", "Hytale");
+        register("hytale.command.damage", "Damage entities", "hytale", "Hytale");
+        register("hytale.command.heal", "Heal players", "hytale", "Hytale");
+
+        // Server commands
+        register("hytale.command.stop", "Stop the server", "hytale", "Hytale");
+        register("hytale.command.backup", "Backup the server", "hytale", "Hytale");
+
+        // ==================== Editor Permissions ====================
+        register("hytale.editor.buildertools", "Access builder tools", "hytale", "Hytale");
+        register("hytale.editor.history", "Access edit history", "hytale", "Hytale");
+        register("hytale.editor.selection.use", "Use selection tools", "hytale", "Hytale");
+        register("hytale.editor.selection.clipboard", "Use clipboard", "hytale", "Hytale");
+        register("hytale.editor.brush.use", "Use brush tools", "hytale", "Hytale");
+        register("hytale.editor.prefab.use", "Use prefabs", "hytale", "Hytale");
+
+        // ==================== Camera Permissions ====================
+        register("hytale.camera.flycam", "Use fly camera", "hytale", "Hytale");
+
+        Logger.debug("Registered Hytale permissions for wildcard expansion");
+    }
+
+    /**
+     * Registers known HyperHomes permissions for wildcard expansion.
+     * <p>
+     * IMPORTANT: Hytale uses full package path for plugin commands:
+     * "com.hyperhomes.hyperhomes.command.homes" instead of "hyperhomes.homes"
+     */
+    private void registerHyperHomesPermissions() {
+        // ==================== Standard HyperHomes permissions ====================
+        // Wildcards
+        register("hyperhomes.*", "Full access to all HyperHomes features", "hyperhomes", "HyperHomes");
+
+        // Core permissions
+        register("hyperhomes.use", "Basic access to HyperHomes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.gui", "Access to homes GUI", "hyperhomes", "HyperHomes");
+        register("hyperhomes.list", "List your homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.set", "Set homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.delete", "Delete homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.teleport", "Teleport to homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.home", "Use the /home command", "hyperhomes", "HyperHomes");
+        register("hyperhomes.sethome", "Use the /sethome command", "hyperhomes", "HyperHomes");
+        register("hyperhomes.delhome", "Use the /delhome command", "hyperhomes", "HyperHomes");
+        register("hyperhomes.homes", "Use the /homes command", "hyperhomes", "HyperHomes");
+
+        // Sharing permissions
+        register("hyperhomes.share", "Share homes with others", "hyperhomes", "HyperHomes");
+        register("hyperhomes.share.public", "Make homes public", "hyperhomes", "HyperHomes");
+        register("hyperhomes.share.invite", "Invite players to homes", "hyperhomes", "HyperHomes");
+
+        // Admin permissions
+        register("hyperhomes.admin", "Admin access to HyperHomes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.admin.teleport", "Teleport to any player's homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.admin.list", "List any player's homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.admin.delete", "Delete any player's homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.admin.modify", "Modify any player's homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.admin.reload", "Reload HyperHomes configuration", "hyperhomes", "HyperHomes");
+
+        // Limit bypass permissions
+        register("hyperhomes.limit.bypass", "Bypass home limits", "hyperhomes", "HyperHomes");
+        register("hyperhomes.cooldown.bypass", "Bypass teleport cooldowns", "hyperhomes", "HyperHomes");
+        register("hyperhomes.warmup.bypass", "Bypass teleport warmups", "hyperhomes", "HyperHomes");
+
+        // ==================== Hytale command path format ====================
+        // Hytale uses full Java package path for plugin commands
+        register("com.*", "All plugin commands", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.*", "All HyperHomes package permissions", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.*", "All HyperHomes commands", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.*", "All HyperHomes command permissions", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.homes", "Use /homes command", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.homes.*", "All /homes subcommands", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.home", "Use /home command", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.home.*", "All /home subcommands", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.sethome", "Use /sethome command", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.sethome.*", "All /sethome subcommands", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.delhome", "Use /delhome command", "hyperhomes", "HyperHomes");
+        register("com.hyperhomes.hyperhomes.command.delhome.*", "All /delhome subcommands", "hyperhomes", "HyperHomes");
+
+        Logger.debug("Registered HyperHomes permissions for wildcard expansion");
     }
 }

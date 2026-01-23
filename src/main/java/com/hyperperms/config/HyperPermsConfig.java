@@ -153,6 +153,14 @@ public final class HyperPermsConfig {
         webEditor.addProperty("timeoutSeconds", 10);
         root.add("webEditor", webEditor);
 
+        // Tab list settings
+        JsonObject tabList = new JsonObject();
+        tabList.addProperty("enabled", true);
+        tabList.addProperty("format", "%prefix%%player%");
+        tabList.addProperty("sortByWeight", true);
+        tabList.addProperty("updateIntervalTicks", 20);
+        root.add("tabList", tabList);
+
         // Faction integration settings (HyFactions)
         JsonObject factions = new JsonObject();
         factions.addProperty("enabled", true);
@@ -494,6 +502,67 @@ public final class HyperPermsConfig {
      */
     public String getWerChatChannelFormat() {
         return getNestedString("werchat", "channelFormat", "%s");
+    }
+
+    // ==================== Update Check Settings ====================
+
+    /**
+     * Checks if update checking is enabled.
+     *
+     * @return true if update checking is enabled
+     */
+    public boolean isUpdateCheckEnabled() {
+        return getNestedBoolean("updates", "enabled", true);
+    }
+
+    /**
+     * Gets the URL for checking updates.
+     *
+     * @return the update check URL
+     */
+    @NotNull
+    public String getUpdateCheckUrl() {
+        return getNestedString("updates", "checkUrl", "https://api.github.com/repos/ZenithDevHQ/HyperPerms/releases/latest");
+    }
+
+    // ==================== Tab List Settings ====================
+
+    /**
+     * Checks if tab list formatting is enabled.
+     *
+     * @return true if tab list formatting is enabled
+     */
+    public boolean isTabListEnabled() {
+        return getNestedBoolean("tabList", "enabled", true);
+    }
+
+    /**
+     * Gets the tab list format string.
+     * Supports placeholders: %prefix%, %player%, %suffix%, %group%, etc.
+     *
+     * @return the tab list format string
+     */
+    @NotNull
+    public String getTabListFormat() {
+        return getNestedString("tabList", "format", "%prefix%%player%");
+    }
+
+    /**
+     * Checks if tab list should be sorted by group weight.
+     *
+     * @return true if sorting by weight is enabled
+     */
+    public boolean isTabListSortByWeight() {
+        return getNestedBoolean("tabList", "sortByWeight", true);
+    }
+
+    /**
+     * Gets the tab list update interval in ticks.
+     *
+     * @return the update interval in ticks (20 ticks = 1 second)
+     */
+    public int getTabListUpdateIntervalTicks() {
+        return getNestedInt("tabList", "updateIntervalTicks", 20);
     }
 
     // ==================== Helper Methods ====================

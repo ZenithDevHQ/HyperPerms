@@ -5,15 +5,12 @@ import com.hyperperms.api.context.ContextSet;
 import com.hyperperms.model.Group;
 import com.hyperperms.model.Node;
 import com.hyperperms.model.User;
+import com.hyperperms.resolver.PermissionResolver;
 import com.hyperperms.util.Logger;
 import com.hypixel.hytale.server.core.permissions.provider.PermissionProvider;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.*;
 
 /**
  * HyperPerms implementation of Hytale's PermissionProvider interface.
@@ -74,16 +71,14 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
 
     @Override
     public Set<String> getUserPermissions(UUID uuid) {
-        // Use getOrCreateUser to ensure new players get their default group permissions
         User user = hyperPerms.getUserManager().getOrCreateUser(uuid);
+        ContextSet contexts = hyperPerms.getContexts(uuid);
 
-        // Return all directly assigned permissions (without context filtering)
-        return user.getNodes().stream()
-                .filter(node -> !node.isGroupNode())
-                .filter(node -> !node.isNegated())
-                .filter(node -> node.getContexts().isEmpty())
-                .map(Node::getPermission)
-                .collect(Collectors.toSet());
+        PermissionResolver.ResolvedPermissions resolved = hyperPerms.getResolver().resolve(user, contexts);
+        Set<String> expanded = resolved.getExpandedPermissions(hyperPerms.getPermissionRegistry());
+
+        Logger.debug("getUserPermissions(%s) returning %d permissions", uuid, expanded.size());
+        return expanded;
     }
 
     // ==================== Group Permissions ====================
@@ -119,18 +114,59 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
 
     @Override
     public Set<String> getGroupPermissions(String groupName) {
+        // Handle virtual user group (contains user's direct permissions)
+        if (groupName.startsWith("user:")) {
+            UUID uuid = UUID.fromString(groupName.substring(5));
+            return getUserDirectPermissions(uuid);
+        }
+
         Group group = hyperPerms.getGroupManager().getGroup(groupName);
         if (group == null) {
+            Logger.debug("getGroupPermissions: group '%s' not found", groupName);
             return Collections.emptySet();
         }
 
-        // Return all directly assigned permissions (without context filtering)
-        return group.getNodes().stream()
-                .filter(node -> !node.isGroupNode())
-                .filter(node -> !node.isNegated())
-                .filter(node -> node.getContexts().isEmpty())
-                .map(Node::getPermission)
-                .collect(Collectors.toSet());
+        Set<String> expanded = hyperPerms.getResolver().resolveGroup(group, ContextSet.empty())
+                .getExpandedPermissions(hyperPerms.getPermissionRegistry());
+
+        Logger.debug("getGroupPermissions(%s) returning %d permissions", groupName, expanded.size());
+        return expanded;
+    }
+
+    /**
+     * Gets the direct permissions for a user (not inherited from groups).
+     * This is used for the virtual user group mechanism.
+     *
+     * @param uuid the user's UUID
+     * @return set of direct user permissions
+     */
+    private Set<String> getUserDirectPermissions(UUID uuid) {
+        User user = hyperPerms.getUserManager().getUser(uuid);
+        if (user == null) {
+            return Collections.emptySet();
+        }
+
+        ContextSet contexts = hyperPerms.getContexts(uuid);
+        Set<String> directPermissions = new HashSet<>();
+
+        // Get user's direct permission nodes (not group inheritance nodes)
+        for (Node node : user.getNodes()) {
+            if (!node.isExpired() && !node.isGroupNode() && node.appliesIn(contexts) && node.getValue()) {
+                directPermissions.add(node.getPermission());
+            }
+        }
+
+        // Expand any wildcards in user's direct permissions
+        Set<String> expanded = new HashSet<>(directPermissions);
+        for (String perm : directPermissions) {
+            if (perm.endsWith(".*") || perm.equals("*")) {
+                Set<String> matching = hyperPerms.getPermissionRegistry().getMatchingPermissions(perm);
+                expanded.addAll(matching);
+            }
+        }
+
+        Logger.debug("getUserDirectPermissions(%s) returning %d permissions", uuid, expanded.size());
+        return expanded;
     }
 
     // ==================== User-Group Membership ====================
@@ -167,7 +203,41 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
     public Set<String> getGroupsForUser(UUID uuid) {
         // Use getOrCreateUser to ensure new players get assigned to their default group
         User user = hyperPerms.getUserManager().getOrCreateUser(uuid);
-        return new HashSet<>(user.getInheritedGroups());
+
+        // Get direct groups and resolve full inheritance chain
+        Set<String> directGroups = new HashSet<>(user.getInheritedGroups());
+        directGroups.add(user.getPrimaryGroup());
+
+        // Recursively collect all parent groups
+        Set<String> allGroups = new HashSet<>();
+        collectInheritedGroups(directGroups, allGroups);
+
+        // Add virtual user group to include user's direct permissions
+        // This is necessary because Hytale only checks group permissions, not user permissions
+        allGroups.add("user:" + uuid.toString());
+
+        Logger.debug("getGroupsForUser(%s) returning %d groups: %s", uuid, allGroups.size(), allGroups);
+        return allGroups;
+    }
+
+    /**
+     * Recursively collects all groups including parent groups in the inheritance chain.
+     */
+    private void collectInheritedGroups(Set<String> groupNames, Set<String> result) {
+        for (String groupName : groupNames) {
+            if (result.contains(groupName)) {
+                continue; // Already processed, avoid cycles
+            }
+            result.add(groupName);
+
+            Group group = hyperPerms.getGroupManager().getGroup(groupName);
+            if (group != null) {
+                Set<String> parents = group.getInheritedGroups();
+                if (!parents.isEmpty()) {
+                    collectInheritedGroups(parents, result);
+                }
+            }
+        }
     }
 
     // ==================== Extended HyperPerms Functionality ====================

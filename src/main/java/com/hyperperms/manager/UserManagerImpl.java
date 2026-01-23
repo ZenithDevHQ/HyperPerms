@@ -38,7 +38,11 @@ public final class UserManagerImpl implements UserManager {
         }
 
         return storage.loadUser(uuid).thenApply(opt -> {
-            opt.ifPresent(user -> loadedUsers.put(uuid, user));
+            opt.ifPresent(user -> {
+                loadedUsers.put(uuid, user);
+                // Invalidate any stale cached permissions
+                cache.invalidate(uuid);
+            });
             return opt;
         });
     }

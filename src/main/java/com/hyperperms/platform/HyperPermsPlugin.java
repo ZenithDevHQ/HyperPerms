@@ -30,6 +30,7 @@ public class HyperPermsPlugin extends JavaPlugin {
     private HyperPermsPermissionProvider permissionProvider;
     private HytaleAdapter adapter;
     private com.hyperperms.chat.ChatListener chatListener;
+    private com.hyperperms.tablist.TabListListener tabListListener;
 
     /**
      * Creates a new HyperPermsPlugin instance.
@@ -86,6 +87,15 @@ public class HyperPermsPlugin extends JavaPlugin {
                 chatListener.unregister(getEventRegistry());
             } catch (Exception e) {
                 getLogger().at(Level.WARNING).withCause(e).log("Failed to unregister chat listener");
+            }
+        }
+
+        // Unregister tab list listener
+        if (tabListListener != null) {
+            try {
+                tabListListener.unregister(getEventRegistry());
+            } catch (Exception e) {
+                getLogger().at(Level.WARNING).withCause(e).log("Failed to unregister tab list listener");
             }
         }
 
@@ -158,6 +168,9 @@ public class HyperPermsPlugin extends JavaPlugin {
         // Register chat listener (if chat formatting is enabled)
         registerChatListener();
 
+        // Register tab list listener (if tab list formatting is enabled)
+        registerTabListListener();
+
         getLogger().at(Level.INFO).log("Registered event listeners");
     }
 
@@ -169,14 +182,14 @@ public class HyperPermsPlugin extends JavaPlugin {
             var chatManager = hyperPerms.getChatManager();
             if (chatManager != null && chatManager.isEnabled()) {
                 chatListener = new com.hyperperms.chat.ChatListener(hyperPerms, chatManager);
-                
+
                 // Load config settings
                 var config = hyperPerms.getConfig();
                 if (config != null) {
                     chatListener.setAllowPlayerColors(config.isAllowPlayerColors());
                     chatListener.setColorPermission(config.getColorPermission());
                 }
-                
+
                 chatListener.register(getEventRegistry());
                 getLogger().at(Level.INFO).log("Chat formatting enabled");
             } else {
@@ -184,6 +197,24 @@ public class HyperPermsPlugin extends JavaPlugin {
             }
         } catch (Exception e) {
             getLogger().at(Level.WARNING).withCause(e).log("Failed to register chat listener");
+        }
+    }
+
+    /**
+     * Registers the tab list listener for formatting player tab list names.
+     */
+    private void registerTabListListener() {
+        try {
+            var tabListManager = hyperPerms.getTabListManager();
+            if (tabListManager != null && tabListManager.isEnabled()) {
+                tabListListener = new com.hyperperms.tablist.TabListListener(hyperPerms, tabListManager);
+                tabListListener.register(getEventRegistry());
+                getLogger().at(Level.INFO).log("Tab list formatting enabled");
+            } else {
+                getLogger().at(Level.INFO).log("Tab list formatting is disabled in config");
+            }
+        } catch (Exception e) {
+            getLogger().at(Level.WARNING).withCause(e).log("Failed to register tab list listener");
         }
     }
 
@@ -221,6 +252,9 @@ public class HyperPermsPlugin extends JavaPlugin {
             // Prime the cache
             hyperPerms.getContextManager().getContexts(uuid);
 
+            // Preload ChatAPI cache for external plugins
+            com.hyperperms.api.ChatAPI.preload(uuid);
+
             Logger.debug("Loaded permissions for %s", username);
         }).exceptionally(e -> {
             Logger.severe("Failed to load permissions for %s", e, username);
@@ -254,6 +288,9 @@ public class HyperPermsPlugin extends JavaPlugin {
 
         // Clear from cache
         hyperPerms.getCache().invalidate(uuid);
+
+        // Clear ChatAPI cache for external plugins
+        com.hyperperms.api.ChatAPI.invalidate(uuid);
 
         // Untrack the player
         adapter.untrackPlayer(uuid);

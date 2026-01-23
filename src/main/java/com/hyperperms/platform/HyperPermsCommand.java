@@ -36,6 +36,7 @@ public class HyperPermsCommand extends AbstractCommand {
         addSubCommand(new ExportSubCommand(hyperPerms));
         addSubCommand(new ImportSubCommand(hyperPerms));
         addSubCommand(new ReloadSubCommand(hyperPerms));
+        addSubCommand(new ResetGroupsSubCommand(hyperPerms));
 
         // Debug commands
         addSubCommand(new DebugSubCommand(hyperPerms));
@@ -88,9 +89,22 @@ public class HyperPermsCommand extends AbstractCommand {
 
     /**
      * Resolves a player identifier (name or UUID string) to a User.
-     * Loads from storage if necessary.
+     * Loads from storage if necessary. Does not create new users.
      */
     private static User resolveUser(HyperPerms hyperPerms, String identifier) {
+        return resolveUser(hyperPerms, identifier, false);
+    }
+
+    /**
+     * Resolves a player identifier (name or UUID string) to a User.
+     * Loads from storage if necessary.
+     *
+     * @param hyperPerms the HyperPerms instance
+     * @param identifier player name or UUID string
+     * @param createIfNotExists if true and a UUID is provided, creates the user if not found
+     * @return the User, or null if not found (and createIfNotExists is false)
+     */
+    private static User resolveUser(HyperPerms hyperPerms, String identifier, boolean createIfNotExists) {
         // Try as UUID first
         Optional<UUID> uuidOpt = parseUuid(identifier);
         if (uuidOpt.isPresent()) {
@@ -100,11 +114,28 @@ public class HyperPermsCommand extends AbstractCommand {
                 return user;
             }
             // Try to load from storage
-            return hyperPerms.getUserManager().loadUser(uuid).join().orElse(null);
+            Optional<User> loaded = hyperPerms.getUserManager().loadUser(uuid).join();
+            if (loaded.isPresent()) {
+                return loaded.get();
+            }
+            // Create if requested (useful for Tebex offline player support)
+            if (createIfNotExists) {
+                return hyperPerms.getUserManager().getOrCreateUser(uuid);
+            }
+            return null;
         }
 
         // Try as username
         return findUserByName(hyperPerms, identifier);
+    }
+
+    /**
+     * Resolves a player identifier to a User, creating the user if a UUID is provided
+     * and the user doesn't exist. This is useful for Tebex integration where players
+     * may not have joined the server yet.
+     */
+    private static User resolveOrCreateUser(HyperPerms hyperPerms, String identifier) {
+        return resolveUser(hyperPerms, identifier, true);
     }
 
     // ==================== Help Subcommand ====================
@@ -815,9 +846,11 @@ public class HyperPermsCommand extends AbstractCommand {
             String permission = ctx.get(permArg);
             String valueStr = ctx.get(valueArg);
 
-            User user = resolveUser(hyperPerms, identifier);
+            // Use resolveOrCreateUser to support offline players (e.g., from Tebex)
+            User user = resolveOrCreateUser(hyperPerms, identifier);
             if (user == null) {
                 ctx.sender().sendMessage(Message.raw("User not found: " + identifier));
+                ctx.sender().sendMessage(Message.raw("Tip: Use UUID for offline players (e.g., from Tebex)"));
                 return CompletableFuture.completedFuture(null);
             }
 
@@ -887,15 +920,17 @@ public class HyperPermsCommand extends AbstractCommand {
             String identifier = ctx.get(playerArg);
             String groupName = ctx.get(groupArg);
 
-            User user = resolveUser(hyperPerms, identifier);
-            if (user == null) {
-                ctx.sender().sendMessage(Message.raw("User not found: " + identifier));
-                return CompletableFuture.completedFuture(null);
-            }
-
             Group group = hyperPerms.getGroupManager().getGroup(groupName);
             if (group == null) {
                 ctx.sender().sendMessage(Message.raw("Group not found: " + groupName));
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // Use resolveOrCreateUser to support offline players (e.g., from Tebex)
+            User user = resolveOrCreateUser(hyperPerms, identifier);
+            if (user == null) {
+                ctx.sender().sendMessage(Message.raw("User not found: " + identifier));
+                ctx.sender().sendMessage(Message.raw("Tip: Use UUID for offline players (e.g., from Tebex)"));
                 return CompletableFuture.completedFuture(null);
             }
 
@@ -963,15 +998,17 @@ public class HyperPermsCommand extends AbstractCommand {
             String identifier = ctx.get(playerArg);
             String groupName = ctx.get(groupArg);
 
-            User user = resolveUser(hyperPerms, identifier);
-            if (user == null) {
-                ctx.sender().sendMessage(Message.raw("User not found: " + identifier));
-                return CompletableFuture.completedFuture(null);
-            }
-
             Group group = hyperPerms.getGroupManager().getGroup(groupName);
             if (group == null) {
                 ctx.sender().sendMessage(Message.raw("Group not found: " + groupName));
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // Use resolveOrCreateUser to support offline players (e.g., from Tebex)
+            User user = resolveOrCreateUser(hyperPerms, identifier);
+            if (user == null) {
+                ctx.sender().sendMessage(Message.raw("User not found: " + identifier));
+                ctx.sender().sendMessage(Message.raw("Tip: Use UUID for offline players (e.g., from Tebex)"));
                 return CompletableFuture.completedFuture(null);
             }
 
@@ -1581,6 +1618,120 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
+    private static class ResetGroupsSubCommand extends AbstractCommand {
+        private final HyperPerms hyperPerms;
+
+        ResetGroupsSubCommand(HyperPerms hyperPerms) {
+            super("resetgroups", "Reset all groups to default");
+            this.hyperPerms = hyperPerms;
+            addSubCommand(new ResetGroupsConfirmSubCommand(hyperPerms));
+        }
+
+        @Override
+        protected CompletableFuture<Void> execute(CommandContext ctx) {
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("=== WARNING ===").color(java.awt.Color.RED));
+            ctx.sender().sendMessage(Message.raw("This will DELETE all existing groups and replace them with defaults."));
+            ctx.sender().sendMessage(Message.raw("User group memberships will be preserved, but custom group settings will be lost."));
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("To confirm, run: /hp resetgroups confirm"));
+            ctx.sender().sendMessage(Message.raw(""));
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    private static class ResetGroupsConfirmSubCommand extends AbstractCommand {
+        private final HyperPerms hyperPerms;
+
+        ResetGroupsConfirmSubCommand(HyperPerms hyperPerms) {
+            super("confirm", "Confirm resetting groups to default");
+            this.hyperPerms = hyperPerms;
+        }
+
+        @Override
+        protected CompletableFuture<Void> execute(CommandContext ctx) {
+
+            ctx.sender().sendMessage(Message.raw("Resetting groups to defaults..."));
+
+            try (var inputStream = getClass().getClassLoader().getResourceAsStream("default-groups.json")) {
+                if (inputStream == null) {
+                    ctx.sender().sendMessage(Message.raw("&cError: default-groups.json not found in plugin resources"));
+                    return CompletableFuture.completedFuture(null);
+                }
+
+                String json = new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+                com.google.gson.JsonObject groups = root.getAsJsonObject("groups");
+
+                if (groups == null) {
+                    ctx.sender().sendMessage(Message.raw("&cError: No 'groups' object found in default-groups.json"));
+                    return CompletableFuture.completedFuture(null);
+                }
+
+                int updated = 0;
+                for (var entry : groups.entrySet()) {
+                    String groupName = entry.getKey();
+                    com.google.gson.JsonObject groupData = entry.getValue().getAsJsonObject();
+
+                    // Get or create the group
+                    Group group = hyperPerms.getGroupManager().getGroup(groupName);
+                    if (group == null) {
+                        group = hyperPerms.getGroupManager().createGroup(groupName);
+                    } else {
+                        // Clear existing permissions and parents (both stored as nodes)
+                        group.clearNodes();
+                    }
+
+                    // Set weight
+                    if (groupData.has("weight")) {
+                        group.setWeight(groupData.get("weight").getAsInt());
+                    }
+
+                    // Set prefix
+                    if (groupData.has("prefix")) {
+                        group.setPrefix(groupData.get("prefix").getAsString());
+                    }
+
+                    // Set suffix
+                    if (groupData.has("suffix")) {
+                        group.setSuffix(groupData.get("suffix").getAsString());
+                    }
+
+                    // Add permissions
+                    if (groupData.has("permissions")) {
+                        for (var perm : groupData.getAsJsonArray("permissions")) {
+                            group.addNode(Node.builder(perm.getAsString()).build());
+                        }
+                    }
+
+                    // Add parent groups
+                    if (groupData.has("parents")) {
+                        for (var parent : groupData.getAsJsonArray("parents")) {
+                            group.addParent(parent.getAsString());
+                        }
+                    }
+
+                    // Save the group
+                    hyperPerms.getGroupManager().saveGroup(group).join();
+                    updated++;
+                }
+
+                // Invalidate all caches
+                hyperPerms.getCacheInvalidator().invalidateAll();
+
+                ctx.sender().sendMessage(Message.raw(""));
+                ctx.sender().sendMessage(Message.raw("Success! Reset " + updated + " groups to defaults.").color(java.awt.Color.GREEN));
+                ctx.sender().sendMessage(Message.raw("All permission caches have been invalidated."));
+                ctx.sender().sendMessage(Message.raw(""));
+
+            } catch (Exception e) {
+                ctx.sender().sendMessage(Message.raw("&cError resetting groups: " + e.getMessage()));
+            }
+
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+
 
     // ==================== Debug Subcommands ====================
 
@@ -1590,6 +1741,7 @@ public class HyperPermsCommand extends AbstractCommand {
             addSubCommand(new DebugTreeSubCommand(hyperPerms));
             addSubCommand(new DebugResolveSubCommand(hyperPerms));
             addSubCommand(new DebugContextsSubCommand(hyperPerms));
+            addSubCommand(new DebugPermsSubCommand());
         }
 
         @Override
@@ -1598,6 +1750,29 @@ public class HyperPermsCommand extends AbstractCommand {
             ctx.sender().sendMessage(Message.raw("  /hp debug tree <user> - Show inheritance tree"));
             ctx.sender().sendMessage(Message.raw("  /hp debug resolve <user> <permission> - Show permission resolution"));
             ctx.sender().sendMessage(Message.raw("  /hp debug contexts <user> - Show current contexts"));
+            ctx.sender().sendMessage(Message.raw("  /hp debug perms - Toggle verbose permission check logging"));
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    private static class DebugPermsSubCommand extends AbstractCommand {
+        DebugPermsSubCommand() {
+            super("perms", "Toggle verbose permission check logging");
+        }
+
+        @Override
+        protected CompletableFuture<Void> execute(CommandContext ctx) {
+            boolean currentState = com.hyperperms.util.Logger.isPermissionDebugEnabled();
+            com.hyperperms.util.Logger.setPermissionDebugEnabled(!currentState);
+
+            if (!currentState) {
+                ctx.sender().sendMessage(Message.raw("§aPermission debug logging ENABLED"));
+                ctx.sender().sendMessage(Message.raw("§7All permission checks will now be logged to console with detailed info."));
+                ctx.sender().sendMessage(Message.raw("§7This helps debug issues between plugins like HyperHomes."));
+                ctx.sender().sendMessage(Message.raw("§7Run §e/hp debug perms§7 again to disable."));
+            } else {
+                ctx.sender().sendMessage(Message.raw("§cPermission debug logging DISABLED"));
+            }
             return CompletableFuture.completedFuture(null);
         }
     }

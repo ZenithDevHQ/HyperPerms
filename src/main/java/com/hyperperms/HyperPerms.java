@@ -46,7 +46,7 @@ import java.util.logging.Level;
  */
 public final class HyperPerms implements HyperPermsAPI {
 
-    public static final String VERSION = "2.2.5";
+    public static final String VERSION = "2.3.5";
     
     private static HyperPerms instance;
 
@@ -66,6 +66,9 @@ public final class HyperPerms implements HyperPermsAPI {
 
     // Chat system
     private com.hyperperms.chat.ChatManager chatManager;
+
+    // Tab list system
+    private com.hyperperms.tablist.TabListManager tabListManager;
     
     // Faction integration (optional - soft dependency on HyFactions)
     @Nullable
@@ -198,6 +201,10 @@ public final class HyperPerms implements HyperPermsAPI {
             // Initialize chat manager
             chatManager = new com.hyperperms.chat.ChatManager(this);
             chatManager.loadConfig();
+
+            // Initialize tab list manager
+            tabListManager = new com.hyperperms.tablist.TabListManager(this);
+            tabListManager.loadConfig();
 
             // Initialize faction integration (soft dependency on HyFactions)
             factionIntegration = new FactionIntegration(this);
@@ -368,8 +375,19 @@ public final class HyperPerms implements HyperPermsAPI {
             }
         }
 
-        // Load user and resolve
-        User user = userManager.getOrCreateUser(uuid);
+        // Load user from memory, or from storage if not yet loaded
+        User user = userManager.getUser(uuid);
+        if (user == null) {
+            // User not in memory - load from storage synchronously
+            // This ensures we get the correct permissions even if called before async load completes
+            var loadResult = userManager.loadUser(uuid).join();
+            if (loadResult.isPresent()) {
+                user = loadResult.get();
+            } else {
+                user = userManager.getOrCreateUser(uuid);
+            }
+        }
+
         var resolved = resolver.resolve(user, contexts);
         cache.put(uuid, contexts, resolved);
 
@@ -678,6 +696,18 @@ public final class HyperPerms implements HyperPermsAPI {
     @Nullable
     public com.hyperperms.chat.ChatManager getChatManager() {
         return chatManager;
+    }
+
+    /**
+     * Gets the tab list manager.
+     * <p>
+     * The tab list manager handles tab list name formatting.
+     *
+     * @return the tab list manager, or null if not yet initialized
+     */
+    @Nullable
+    public com.hyperperms.tablist.TabListManager getTabListManager() {
+        return tabListManager;
     }
 
     /**

@@ -30,7 +30,8 @@ public final class ChatAPI {
     
     // Cache for quick synchronous access (populated by async preload)
     private static final Map<UUID, CachedData> cache = new ConcurrentHashMap<>();
-    private static final long CACHE_TTL_MS = 10000; // 10 seconds
+    private static final long CACHE_TTL_MS = 30000; // 30 seconds - longer TTL to reduce async fallback calls
+    private static final long SYNC_TIMEOUT_MS = 500; // Timeout for synchronous fallback
     
     /**
      * Gets the prefix for a player (synchronous, uses cache).
@@ -48,14 +49,17 @@ public final class ChatAPI {
             return cached.prefix != null ? cached.prefix : "";
         }
         
-        // Try to load synchronously (may block briefly)
+        // Use preload() which loads everything, then return prefix from cache
+        // This eliminates the race condition between preload() and getPrefixAsync()
         try {
-            return getPrefixAsync(uuid).get(100, TimeUnit.MILLISECONDS);
+            preload(uuid).get(SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            CachedData loadedData = cache.get(uuid);
+            return (loadedData != null && loadedData.prefix != null) ? loadedData.prefix : "";
         } catch (Exception e) {
             return "";
         }
     }
-    
+
     /**
      * Gets the suffix for a player (synchronous, uses cache).
      *
@@ -69,14 +73,17 @@ public final class ChatAPI {
             return cached.suffix != null ? cached.suffix : "";
         }
         
-        // Try to load synchronously (may block briefly)
+        // Use preload() which loads everything, then return suffix from cache
+        // This eliminates the race condition between preload() and getSuffixAsync()
         try {
-            return getSuffixAsync(uuid).get(100, TimeUnit.MILLISECONDS);
+            preload(uuid).get(SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            CachedData loadedData = cache.get(uuid);
+            return (loadedData != null && loadedData.suffix != null) ? loadedData.suffix : "";
         } catch (Exception e) {
             return "";
         }
     }
-    
+
     /**
      * Gets the primary group name for a player.
      *
@@ -185,18 +192,22 @@ public final class ChatAPI {
         return hp != null && hp.isEnabled();
     }
     
-    private static void updateCache(UUID uuid, @Nullable String prefix, 
+    private static void updateCache(UUID uuid, @Nullable String prefix,
                                     @Nullable String suffix, @Nullable String group) {
         CachedData existing = cache.get(uuid);
         if (existing != null && !existing.isExpired()) {
-            // Merge with existing
+            // Merge with existing - prevents partial cache entries from overwriting full ones
             cache.put(uuid, new CachedData(
                 prefix != null ? prefix : existing.prefix,
                 suffix != null ? suffix : existing.suffix,
                 group != null ? group : existing.primaryGroup
             ));
         } else {
-            cache.put(uuid, new CachedData(prefix, suffix, group));
+            // Only create new entry if we have at least prefix OR suffix
+            // Prevents caching empty data that would cause prefix/suffix to be empty
+            if (prefix != null || suffix != null) {
+                cache.put(uuid, new CachedData(prefix, suffix, group));
+            }
         }
     }
     

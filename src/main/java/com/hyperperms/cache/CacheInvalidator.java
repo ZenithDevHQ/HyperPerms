@@ -1,6 +1,7 @@
 package com.hyperperms.cache;
 
 import com.hyperperms.api.ChatAPI;
+import com.hyperperms.api.TabListAPI;
 import com.hyperperms.util.Logger;
 import org.jetbrains.annotations.NotNull;
 
@@ -102,6 +103,7 @@ public final class CacheInvalidator {
         for (UUID uuid : members) {
             cache.invalidate(uuid);
             ChatAPI.invalidate(uuid); // Also invalidate chat prefix/suffix cache
+            TabListAPI.invalidate(uuid); // Also invalidate tab list cache
             count++;
         }
 
@@ -132,6 +134,7 @@ public final class CacheInvalidator {
         for (UUID uuid : toInvalidate) {
             cache.invalidate(uuid);
             ChatAPI.invalidate(uuid); // Also invalidate chat prefix/suffix cache
+            TabListAPI.invalidate(uuid); // Also invalidate tab list cache
         }
 
         Logger.debug("Invalidated cache for %d users across %d groups",
@@ -147,6 +150,7 @@ public final class CacheInvalidator {
     public void invalidateUser(@NotNull UUID uuid) {
         cache.invalidate(uuid);
         ChatAPI.invalidate(uuid); // Also invalidate chat prefix/suffix cache
+        TabListAPI.invalidate(uuid); // Also invalidate tab list cache
     }
 
     /**
@@ -158,6 +162,7 @@ public final class CacheInvalidator {
     public void invalidate(@NotNull UUID uuid) {
         cache.invalidate(uuid);
         ChatAPI.invalidate(uuid); // Also invalidate chat prefix/suffix cache
+        TabListAPI.invalidate(uuid); // Also invalidate tab list cache
     }
 
     /**
@@ -166,6 +171,7 @@ public final class CacheInvalidator {
     public void invalidateAll() {
         cache.invalidateAll();
         ChatAPI.invalidateAll(); // Also invalidate all chat prefix/suffix caches
+        TabListAPI.invalidateAll(); // Also invalidate all tab list caches
         Logger.debug("Invalidated all cache entries");
     }
 
@@ -180,6 +186,7 @@ public final class CacheInvalidator {
     public void invalidateContextCache(@NotNull UUID uuid) {
         cache.invalidate(uuid);
         ChatAPI.invalidate(uuid); // Context changes may affect prefix/suffix
+        TabListAPI.invalidate(uuid); // Context changes may affect tab list
         Logger.debug("Invalidated context cache for user %s", uuid);
     }
 
