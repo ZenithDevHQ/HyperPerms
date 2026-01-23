@@ -1124,11 +1124,8 @@ public class HyperPermsCommand extends AbstractCommand {
                 return CompletableFuture.completedFuture(null);
             }
 
-            // Clear all nodes
-            user.getNodes().clear();
-            
-            // Clear groups (keep only default)
-            user.getInheritedGroups().clear();
+            // Clear all nodes (permissions and group memberships)
+            user.clearNodes();
             user.setPrimaryGroup("default");
             
             // Clear custom prefix/suffix
