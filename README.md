@@ -84,13 +84,13 @@ api.getTrackManager().promote(user, staffTrack);
 |---------|-------------|------------|
 | `/hp reload` | Reload configuration | `hyperperms.admin.reload` |
 | `/hp info` | Plugin information | `hyperperms.admin.info` |
-| `/hpuser <player> info` | View player permissions | `hyperperms.user.info` |
-| `/hpuser <player> permission set <perm>` | Set permission | `hyperperms.user.permission.set` |
-| `/hpuser <player> parent add <group>` | Add to group | `hyperperms.user.parent.add` |
-| `/hpgroup create <name>` | Create group | `hyperperms.group.create` |
-| `/hpgroup <group> permission set <perm>` | Set group permission | `hyperperms.group.permission.set` |
-| `/hptrack create <name>` | Create track | `hyperperms.track.create` |
-| `/hptrack <track> promote <player>` | Promote player | `hyperperms.track.promote` |
+| `/hp user <player> info` | View player permissions | `hyperperms.user.info` |
+| `/hp user <player> permission set <perm>` | Set permission | `hyperperms.user.permission.set` |
+| `/hp user <player> parent add <group>` | Add to group | `hyperperms.user.parent.add` |
+| `/hp group create <name>` | Create group | `hyperperms.group.create` |
+| `/hp group <group> permission set <perm>` | Set group permission | `hyperperms.group.permission.set` |
+| `/hp track create <name>` | Create track | `hyperperms.track.create` |
+| `/hp track <track> promote <player>` | Promote player | `hyperperms.track.promote` |
 
 ## Architecture
 
@@ -112,7 +112,7 @@ com.hyperperms
 
 ## License
 
-MIT License
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](https://github.com/ZenithDevHQ/HyperPerms/blob/main/LICENSE) file for details.
 
 ## Contributing
 
@@ -122,4 +122,4 @@ MIT License
 
 ## Support
 
-For issues and feature requests, please use the GitHub issue tracker.
+For bug reports and feature requests, please open an issue on [GitHub Issues](https://github.com/ZenithDevHQ/HyperHomes/issues).
