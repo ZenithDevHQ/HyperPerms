@@ -19,6 +19,7 @@ data/
 # Temp
 *.log
 .claude/
+CLAUDE.md
 .serena/
 .playwright-mcp/
 nul
