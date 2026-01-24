@@ -1683,18 +1683,35 @@ public class HyperPermsCommand extends AbstractCommand {
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color RED = new java.awt.Color(255, 85, 85);
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+            java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+
             String identifier = ctx.get(playerArg);
             String permission = ctx.get(permArg);
 
             User user = resolveUser(hyperPerms, identifier);
             if (user == null) {
-                ctx.sender().sendMessage(Message.raw("User not found: " + identifier));
+                ctx.sender().sendMessage(Message.raw("✗ User not found: " + identifier).color(RED));
                 return CompletableFuture.completedFuture(null);
             }
 
             boolean hasPermission = hyperPerms.hasPermission(user.getUuid(), permission);
-            String result = hasPermission ? "&aYES" : "&cNO";
-            ctx.sender().sendMessage(Message.raw("Permission check: " + user.getFriendlyName() + " has " + permission + ": " + result));
+
+            List<Message> parts = new ArrayList<>();
+            if (hasPermission) {
+                parts.add(Message.raw("✓ ").color(GREEN));
+                parts.add(Message.raw(user.getFriendlyName()).color(GOLD));
+                parts.add(Message.raw(" has permission ").color(GRAY));
+                parts.add(Message.raw(permission).color(GREEN));
+            } else {
+                parts.add(Message.raw("✗ ").color(RED));
+                parts.add(Message.raw(user.getFriendlyName()).color(GOLD));
+                parts.add(Message.raw(" does NOT have permission ").color(GRAY));
+                parts.add(Message.raw(permission).color(RED));
+            }
+            ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
 
             return CompletableFuture.completedFuture(null);
         }
@@ -1712,34 +1729,52 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class BackupCreateSubCommand extends AbstractCommand {
+    private static class BackupCreateSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
+        private final OptionalArg<String> nameArg;
 
         BackupCreateSubCommand(HyperPerms hyperPerms) {
-            super("create", "Create a manual backup");
+            super("create", "Create a manual backup (use --name <prefix> for custom name)");
             this.hyperPerms = hyperPerms;
+            this.nameArg = describeOptionalArg("name", "Backup name prefix (default: manual)", ArgTypes.STRING);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color RED = java.awt.Color.RED;
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+
             var backupManager = hyperPerms.getBackupManager();
             if (backupManager == null) {
-                ctx.sender().sendMessage(Message.raw("Backup manager not available"));
+                ctx.sender().sendMessage(Message.raw("✗ Backup manager not available").color(RED));
                 return CompletableFuture.completedFuture(null);
             }
 
-            ctx.sender().sendMessage(Message.raw("Creating backup..."));
-            
-            return backupManager.createBackup("manual")
+            String namePrefix = ctx.get(nameArg);
+            if (namePrefix == null || namePrefix.isEmpty()) {
+                namePrefix = "manual";
+            }
+
+            ctx.sender().sendMessage(Message.raw("Creating backup...").color(GRAY));
+
+            final String finalPrefix = namePrefix;
+            return backupManager.createBackup(finalPrefix)
                 .thenAccept(backupName -> {
                     if (backupName != null) {
-                        ctx.sender().sendMessage(Message.raw("Backup created: " + backupName));
+                        List<Message> parts = new ArrayList<>();
+                        parts.add(Message.raw("✓ Backup created: ").color(GREEN));
+                        parts.add(Message.raw(backupName).color(java.awt.Color.WHITE));
+                        ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
                     } else {
-                        ctx.sender().sendMessage(Message.raw("Failed to create backup"));
+                        ctx.sender().sendMessage(Message.raw("✗ Failed to create backup").color(RED));
                     }
                 })
                 .exceptionally(e -> {
-                    ctx.sender().sendMessage(Message.raw("Error creating backup: " + e.getMessage()));
+                    List<Message> parts = new ArrayList<>();
+                    parts.add(Message.raw("✗ Error creating backup: ").color(RED));
+                    parts.add(Message.raw(e.getMessage()).color(GRAY));
+                    ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
                     return null;
                 });
         }
@@ -1755,26 +1790,46 @@ public class HyperPermsCommand extends AbstractCommand {
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
+            java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color RED = java.awt.Color.RED;
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+            java.awt.Color WHITE = java.awt.Color.WHITE;
+
             var backupManager = hyperPerms.getBackupManager();
             if (backupManager == null) {
-                ctx.sender().sendMessage(Message.raw("Backup manager not available"));
+                ctx.sender().sendMessage(Message.raw("✗ Backup manager not available").color(RED));
                 return CompletableFuture.completedFuture(null);
             }
 
             return backupManager.listBackups()
                 .thenAccept(backups -> {
                     if (backups.isEmpty()) {
-                        ctx.sender().sendMessage(Message.raw("No backups found"));
+                        ctx.sender().sendMessage(Message.raw("No backups found").color(GRAY));
                         return;
                     }
-                    
-                    ctx.sender().sendMessage(Message.raw("=== Backups (" + backups.size() + ") ==="));
+
+                    ctx.sender().sendMessage(Message.raw(""));
+
+                    List<Message> header = new ArrayList<>();
+                    header.add(Message.raw("--- Backups (").color(GRAY));
+                    header.add(Message.raw(String.valueOf(backups.size())).color(GOLD));
+                    header.add(Message.raw(") ---").color(GRAY));
+                    ctx.sender().sendMessage(Message.join(header.toArray(new Message[0])));
+
                     for (String backup : backups) {
-                        ctx.sender().sendMessage(Message.raw("- " + backup));
+                        List<Message> parts = new ArrayList<>();
+                        parts.add(Message.raw("  • ").color(GREEN));
+                        parts.add(Message.raw(backup).color(WHITE));
+                        ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
                     }
+                    ctx.sender().sendMessage(Message.raw(""));
                 })
                 .exceptionally(e -> {
-                    ctx.sender().sendMessage(Message.raw("Error listing backups: " + e.getMessage()));
+                    List<Message> parts = new ArrayList<>();
+                    parts.add(Message.raw("✗ Error listing backups: ").color(RED));
+                    parts.add(Message.raw(e.getMessage()).color(GRAY));
+                    ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
                     return null;
                 });
         }
@@ -1792,11 +1847,16 @@ public class HyperPermsCommand extends AbstractCommand {
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color RED = java.awt.Color.RED;
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+            java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+
             String backupName = ctx.get(backupArg);
 
             var backupManager = hyperPerms.getBackupManager();
             if (backupManager == null) {
-                ctx.sender().sendMessage(Message.raw("Backup manager not available"));
+                ctx.sender().sendMessage(Message.raw("✗ Backup manager not available").color(RED));
                 return CompletableFuture.completedFuture(null);
             }
 
@@ -1806,19 +1866,30 @@ public class HyperPermsCommand extends AbstractCommand {
             if (hasPendingConfirmation(confirmationKey)) {
                 clearPendingConfirmation(confirmationKey);
 
-                ctx.sender().sendMessage(Message.raw("Restoring from backup: " + backupName));
+                List<Message> restoring = new ArrayList<>();
+                restoring.add(Message.raw("Restoring from backup: ").color(GRAY));
+                restoring.add(Message.raw(backupName).color(GOLD));
+                ctx.sender().sendMessage(Message.join(restoring.toArray(new Message[0])));
 
                 return backupManager.restoreBackup(backupName)
                     .thenAccept(success -> {
                         if (success) {
-                            ctx.sender().sendMessage(Message.raw("Backup restored successfully!"));
-                            ctx.sender().sendMessage(Message.raw("Please run /hp reload to apply changes"));
+                            ctx.sender().sendMessage(Message.raw("✓ Backup restored successfully!").color(GREEN));
+
+                            List<Message> reload = new ArrayList<>();
+                            reload.add(Message.raw("Please run ").color(GRAY));
+                            reload.add(Message.raw("/hp reload").color(GOLD));
+                            reload.add(Message.raw(" to apply changes").color(GRAY));
+                            ctx.sender().sendMessage(Message.join(reload.toArray(new Message[0])));
                         } else {
-                            ctx.sender().sendMessage(Message.raw("Failed to restore backup"));
+                            ctx.sender().sendMessage(Message.raw("✗ Failed to restore backup").color(RED));
                         }
                     })
                     .exceptionally(e -> {
-                        ctx.sender().sendMessage(Message.raw("Error restoring backup: " + e.getMessage()));
+                        List<Message> parts = new ArrayList<>();
+                        parts.add(Message.raw("✗ Error restoring backup: ").color(RED));
+                        parts.add(Message.raw(e.getMessage()).color(GRAY));
+                        ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
                         return null;
                     });
             }
@@ -1848,37 +1919,49 @@ public class HyperPermsCommand extends AbstractCommand {
         private final OptionalArg<String> filenameArg;
 
         ExportSubCommand(HyperPerms hyperPerms) {
-            super("export", "Export all data to a file");
+            super("export", "Export all data to a file (use --filename <name> for custom name)");
             this.hyperPerms = hyperPerms;
-            this.filenameArg = describeOptionalArg("filename", "Export file name", ArgTypes.STRING);
+            this.filenameArg = describeOptionalArg("filename", "Export file name prefix (default: auto-generated)", ArgTypes.STRING);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
-            String filename = ctx.get(filenameArg);
-            if (filename == null || filename.isEmpty()) {
-                filename = "hyperperms-export-" + System.currentTimeMillis() + ".json";
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color RED = java.awt.Color.RED;
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+            java.awt.Color WHITE = java.awt.Color.WHITE;
+
+            String filenamePrefix = ctx.get(filenameArg);
+            if (filenamePrefix == null || filenamePrefix.isEmpty()) {
+                filenamePrefix = "export";
             }
 
-            ctx.sender().sendMessage(Message.raw("Exporting data to: " + filename));
-            
+            ctx.sender().sendMessage(Message.raw("Creating export...").color(GRAY));
+
             // Export is essentially a backup with a custom name
             var backupManager = hyperPerms.getBackupManager();
             if (backupManager == null) {
-                ctx.sender().sendMessage(Message.raw("Backup/export not available"));
+                ctx.sender().sendMessage(Message.raw("✗ Backup/export not available").color(RED));
                 return CompletableFuture.completedFuture(null);
             }
 
-            return backupManager.createBackup("export")
+            final String finalPrefix = filenamePrefix;
+            return backupManager.createBackup(finalPrefix)
                 .thenAccept(backupName -> {
                     if (backupName != null) {
-                        ctx.sender().sendMessage(Message.raw("Data exported to: " + backupName));
+                        List<Message> parts = new ArrayList<>();
+                        parts.add(Message.raw("✓ Data exported to: ").color(GREEN));
+                        parts.add(Message.raw(backupName).color(WHITE));
+                        ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
                     } else {
-                        ctx.sender().sendMessage(Message.raw("Failed to export data"));
+                        ctx.sender().sendMessage(Message.raw("✗ Failed to export data").color(RED));
                     }
                 })
                 .exceptionally(e -> {
-                    ctx.sender().sendMessage(Message.raw("Error exporting: " + e.getMessage()));
+                    List<Message> parts = new ArrayList<>();
+                    parts.add(Message.raw("✗ Error exporting: ").color(RED));
+                    parts.add(Message.raw(e.getMessage()).color(GRAY));
+                    ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
                     return null;
                 });
         }
@@ -2063,9 +2146,12 @@ public class HyperPermsCommand extends AbstractCommand {
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("Reloading HyperPerms..."));
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+
+            ctx.sender().sendMessage(Message.raw("Reloading HyperPerms...").color(GRAY));
             hyperPerms.reload();
-            ctx.sender().sendMessage(Message.raw("HyperPerms reloaded successfully!"));
+            ctx.sender().sendMessage(Message.raw("✓ HyperPerms reloaded successfully!").color(GREEN));
             return CompletableFuture.completedFuture(null);
         }
     }
@@ -2102,12 +2188,15 @@ public class HyperPermsCommand extends AbstractCommand {
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
+            java.awt.Color RED = java.awt.Color.RED;
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color GRAY = java.awt.Color.GRAY;
 
-            ctx.sender().sendMessage(Message.raw("Resetting groups to defaults..."));
+            ctx.sender().sendMessage(Message.raw("Resetting groups to defaults...").color(GRAY));
 
             try (var inputStream = getClass().getClassLoader().getResourceAsStream("default-groups.json")) {
                 if (inputStream == null) {
-                    ctx.sender().sendMessage(Message.raw("&cError: default-groups.json not found in plugin resources"));
+                    ctx.sender().sendMessage(Message.raw("✗ Error: default-groups.json not found in plugin resources").color(RED));
                     return CompletableFuture.completedFuture(null);
                 }
 
@@ -2116,7 +2205,7 @@ public class HyperPermsCommand extends AbstractCommand {
                 com.google.gson.JsonObject groups = root.getAsJsonObject("groups");
 
                 if (groups == null) {
-                    ctx.sender().sendMessage(Message.raw("&cError: No 'groups' object found in default-groups.json"));
+                    ctx.sender().sendMessage(Message.raw("✗ Error: No 'groups' object found in default-groups.json").color(RED));
                     return CompletableFuture.completedFuture(null);
                 }
 
@@ -2172,12 +2261,21 @@ public class HyperPermsCommand extends AbstractCommand {
                 hyperPerms.getCacheInvalidator().invalidateAll();
 
                 ctx.sender().sendMessage(Message.raw(""));
-                ctx.sender().sendMessage(Message.raw("Success! Reset " + updated + " groups to defaults.").color(java.awt.Color.GREEN));
-                ctx.sender().sendMessage(Message.raw("All permission caches have been invalidated."));
+
+                List<Message> success = new ArrayList<>();
+                success.add(Message.raw("✓ Success! Reset ").color(GREEN));
+                success.add(Message.raw(String.valueOf(updated)).color(java.awt.Color.WHITE));
+                success.add(Message.raw(" groups to defaults.").color(GREEN));
+                ctx.sender().sendMessage(Message.join(success.toArray(new Message[0])));
+
+                ctx.sender().sendMessage(Message.raw("All permission caches have been invalidated.").color(GRAY));
                 ctx.sender().sendMessage(Message.raw(""));
 
             } catch (Exception e) {
-                ctx.sender().sendMessage(Message.raw("&cError resetting groups: " + e.getMessage()));
+                List<Message> parts = new ArrayList<>();
+                parts.add(Message.raw("✗ Error resetting groups: ").color(RED));
+                parts.add(Message.raw(e.getMessage()).color(GRAY));
+                ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
             }
 
             return CompletableFuture.completedFuture(null);
