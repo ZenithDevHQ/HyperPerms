@@ -21,6 +21,7 @@ public final class GroupManagerImpl implements GroupManager {
     private final StorageProvider storage;
     private final CacheInvalidator cacheInvalidator;
     private final Map<String, Group> loadedGroups = new ConcurrentHashMap<>();
+    private final Map<String, Object> groupLocks = new ConcurrentHashMap<>();
 
     public GroupManagerImpl(@NotNull StorageProvider storage, @NotNull CacheInvalidator cacheInvalidator) {
         this.storage = storage;
@@ -68,28 +69,40 @@ public final class GroupManagerImpl implements GroupManager {
     public CompletableFuture<Void> deleteGroup(@NotNull String name) {
         String lowerName = name.toLowerCase();
         loadedGroups.remove(lowerName);
-        // Invalidate all users in the deleted group
-        cacheInvalidator.invalidateGroup(lowerName);
-        return storage.deleteGroup(lowerName);
+        // Invalidate cache AFTER delete completes to prevent stale reads
+        return storage.deleteGroup(lowerName).thenRun(() -> {
+            // Invalidate all users in the deleted group
+            cacheInvalidator.invalidateGroup(lowerName);
+        });
     }
 
     @Override
     public CompletableFuture<Void> saveGroup(@NotNull Group group) {
         loadedGroups.put(group.getName(), group);
-        // Targeted invalidation: only invalidate users in this group
-        cacheInvalidator.invalidateGroup(group.getName());
-        return storage.saveGroup(group);
+        // Invalidate cache AFTER save completes to prevent stale reads
+        return storage.saveGroup(group).thenRun(() -> {
+            // Targeted invalidation: only invalidate users in this group
+            cacheInvalidator.invalidateGroup(group.getName());
+        });
     }
 
     @Override
     public CompletableFuture<Void> modifyGroup(@NotNull String name, @NotNull Consumer<Group> action) {
-        Group group = getGroup(name);
+        String lowerName = name.toLowerCase();
+        Group group = getGroup(lowerName);
         if (group == null) {
             return CompletableFuture.failedFuture(
                     new IllegalArgumentException("Group not found: " + name));
         }
-        action.accept(group);
-        return saveGroup(group);
+
+        // Use per-entity locks to prevent concurrent modification lost updates
+        Object lock = groupLocks.computeIfAbsent(lowerName, k -> new Object());
+
+        return CompletableFuture.runAsync(() -> {
+            synchronized (lock) {
+                action.accept(group);
+            }
+        }).thenCompose(v -> saveGroup(group));
     }
 
     @Override

@@ -21,6 +21,7 @@ public final class UserManagerImpl implements UserManager {
     private final StorageProvider storage;
     private final PermissionCache cache;
     private final Map<UUID, User> loadedUsers = new ConcurrentHashMap<>();
+    private final Map<UUID, Object> userLocks = new ConcurrentHashMap<>();
     private final String defaultGroup;
 
     public UserManagerImpl(@NotNull StorageProvider storage, @NotNull PermissionCache cache,
@@ -79,10 +80,22 @@ public final class UserManagerImpl implements UserManager {
 
     @Override
     public CompletableFuture<Void> modifyUser(@NotNull UUID uuid, @NotNull Consumer<User> action) {
-        User user = getOrCreateUser(uuid);
-        action.accept(user);
-        cache.invalidate(uuid);
-        return saveUser(user);
+        // Use per-entity locks to prevent concurrent modification lost updates
+        Object lock = userLocks.computeIfAbsent(uuid, k -> new Object());
+
+        return CompletableFuture.runAsync(() -> {
+            synchronized (lock) {
+                User user = getOrCreateUser(uuid);
+                action.accept(user);
+            }
+        }).thenCompose(v -> {
+            // Re-fetch the user to save (modifications already applied)
+            User user = getOrCreateUser(uuid);
+            return saveUser(user);
+        }).thenRun(() -> {
+            // Invalidate cache AFTER save completes to prevent stale reads
+            cache.invalidate(uuid);
+        });
     }
 
     @Override

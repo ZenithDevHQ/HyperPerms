@@ -34,6 +34,13 @@ import java.util.concurrent.TimeUnit;
  *   <li>Place it in the server's plugins/HyperPerms/lib/ directory</li>
  *   <li>Set storage.type to "sqlite" in config.json</li>
  * </ol>
+ * <p>
+ * <b>IMPORTANT - Thread Safety:</b> All database operations MUST execute on the
+ * single-threaded executor to ensure transaction isolation. The current implementation
+ * shares a single Connection and uses manual transaction management (setAutoCommit/commit).
+ * Do not change the executor to multi-threaded without implementing connection pooling,
+ * as concurrent access to the shared connection would cause transaction interference and
+ * potential data corruption.
  */
 public final class SQLiteStorageProvider implements StorageProvider {
 

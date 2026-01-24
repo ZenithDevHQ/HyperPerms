@@ -11,19 +11,62 @@ import com.hypixel.hytale.server.core.command.system.arguments.system.OptionalAr
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Main HyperPerms command for Hytale.
  * Provides /hp command with various subcommands.
+ *
+ * Note: "this-escape" warning suppressed in constructor because subcommand
+ * registration via addSubCommand() only stores references to inner class instances
+ * without calling any methods that depend on the fully initialized state of the
+ * outer HyperPermsCommand instance. This pattern is safe.
  */
 public class HyperPermsCommand extends AbstractCommand {
 
     private final HyperPerms hyperPerms;
+
+    // Confirmation tracking for destructive operations
+    private static final Map<String, Long> pendingConfirmations = new ConcurrentHashMap<>();
+    private static final long CONFIRMATION_TIMEOUT_MS = 60_000; // 60 seconds
+
+    /**
+     * Checks if a pending confirmation exists and is still valid.
+     *
+     * @param key the confirmation key (e.g., "group-delete:groupname" or "user-clear:uuid")
+     * @return true if confirmation is pending and not expired
+     */
+    private static boolean hasPendingConfirmation(String key) {
+        Long timestamp = pendingConfirmations.get(key);
+        if (timestamp == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() - timestamp > CONFIRMATION_TIMEOUT_MS) {
+            pendingConfirmations.remove(key);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Records a new pending confirmation.
+     *
+     * @param key the confirmation key
+     */
+    private static void setPendingConfirmation(String key) {
+        pendingConfirmations.put(key, System.currentTimeMillis());
+    }
+
+    /**
+     * Clears a pending confirmation after execution.
+     *
+     * @param key the confirmation key
+     */
+    private static void clearPendingConfirmation(String key) {
+        pendingConfirmations.remove(key);
+    }
 
     @SuppressWarnings("this-escape")
     public HyperPermsCommand(HyperPerms hyperPerms) {
@@ -699,12 +742,33 @@ public class HyperPermsCommand extends AbstractCommand {
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
             String groupName = ctx.get(nameArg);
-            if (hyperPerms.getGroupManager().getGroup(groupName) == null) {
+            Group group = hyperPerms.getGroupManager().getGroup(groupName);
+
+            if (group == null) {
                 ctx.sender().sendMessage(Message.raw("Group not found: " + groupName));
                 return CompletableFuture.completedFuture(null);
             }
-            hyperPerms.getGroupManager().deleteGroup(groupName);
-            ctx.sender().sendMessage(Message.raw("Deleted group: " + groupName));
+
+            String confirmationKey = "group-delete:" + groupName.toLowerCase();
+
+            // Check if this is a confirmation
+            if (hasPendingConfirmation(confirmationKey)) {
+                clearPendingConfirmation(confirmationKey);
+                hyperPerms.getGroupManager().deleteGroup(groupName);
+                ctx.sender().sendMessage(Message.raw("Deleted group: " + groupName));
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // First invocation - show warning and request confirmation
+            setPendingConfirmation(confirmationKey);
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("=== WARNING ===").color(java.awt.Color.RED));
+            ctx.sender().sendMessage(Message.raw("You are about to DELETE group: " + groupName));
+            ctx.sender().sendMessage(Message.raw("This will remove all permissions and settings for this group."));
+            ctx.sender().sendMessage(Message.raw("Users in this group will lose inherited permissions."));
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("To confirm, run the same command again within 60 seconds."));
+            ctx.sender().sendMessage(Message.raw(""));
             return CompletableFuture.completedFuture(null);
         }
     }
@@ -1508,18 +1572,39 @@ public class HyperPermsCommand extends AbstractCommand {
                 return CompletableFuture.completedFuture(null);
             }
 
-            // Clear all nodes (permissions and group memberships)
-            user.clearNodes();
-            user.setPrimaryGroup("default");
-            
-            // Clear custom prefix/suffix
-            user.setCustomPrefix(null);
-            user.setCustomSuffix(null);
+            String confirmationKey = "user-clear:" + user.getUuid();
 
-            hyperPerms.getUserManager().saveUser(user).join();
-            hyperPerms.getCache().invalidate(user.getUuid());
+            // Check if this is a confirmation
+            if (hasPendingConfirmation(confirmationKey)) {
+                clearPendingConfirmation(confirmationKey);
 
-            ctx.sender().sendMessage(Message.raw("Cleared all data for " + user.getFriendlyName()));
+                // Clear all nodes (permissions and group memberships)
+                user.clearNodes();
+                user.setPrimaryGroup("default");
+
+                // Clear custom prefix/suffix
+                user.setCustomPrefix(null);
+                user.setCustomSuffix(null);
+
+                hyperPerms.getUserManager().saveUser(user).join();
+                hyperPerms.getCache().invalidate(user.getUuid());
+
+                ctx.sender().sendMessage(Message.raw("Cleared all data for " + user.getFriendlyName()));
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // First invocation - show warning and request confirmation
+            setPendingConfirmation(confirmationKey);
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("=== WARNING ===").color(java.awt.Color.RED));
+            ctx.sender().sendMessage(Message.raw("You are about to CLEAR ALL DATA for user: " + user.getFriendlyName()));
+            ctx.sender().sendMessage(Message.raw("This will remove:"));
+            ctx.sender().sendMessage(Message.raw("  - All permissions"));
+            ctx.sender().sendMessage(Message.raw("  - All group memberships (reset to 'default')"));
+            ctx.sender().sendMessage(Message.raw("  - Custom prefix/suffix"));
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("To confirm, run the same command again within 60 seconds."));
+            ctx.sender().sendMessage(Message.raw(""));
             return CompletableFuture.completedFuture(null);
         }
     }
@@ -1708,29 +1793,51 @@ public class HyperPermsCommand extends AbstractCommand {
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
             String backupName = ctx.get(backupArg);
-            
+
             var backupManager = hyperPerms.getBackupManager();
             if (backupManager == null) {
                 ctx.sender().sendMessage(Message.raw("Backup manager not available"));
                 return CompletableFuture.completedFuture(null);
             }
 
-            ctx.sender().sendMessage(Message.raw("Restoring from backup: " + backupName));
-            ctx.sender().sendMessage(Message.raw("WARNING: This will overwrite current data!"));
-            
-            return backupManager.restoreBackup(backupName)
-                .thenAccept(success -> {
-                    if (success) {
-                        ctx.sender().sendMessage(Message.raw("Backup restored successfully!"));
-                        ctx.sender().sendMessage(Message.raw("Please run /hp reload to apply changes"));
-                    } else {
-                        ctx.sender().sendMessage(Message.raw("Failed to restore backup"));
-                    }
-                })
-                .exceptionally(e -> {
-                    ctx.sender().sendMessage(Message.raw("Error restoring backup: " + e.getMessage()));
-                    return null;
-                });
+            String confirmationKey = "backup-restore:" + backupName;
+
+            // Check if this is a confirmation
+            if (hasPendingConfirmation(confirmationKey)) {
+                clearPendingConfirmation(confirmationKey);
+
+                ctx.sender().sendMessage(Message.raw("Restoring from backup: " + backupName));
+
+                return backupManager.restoreBackup(backupName)
+                    .thenAccept(success -> {
+                        if (success) {
+                            ctx.sender().sendMessage(Message.raw("Backup restored successfully!"));
+                            ctx.sender().sendMessage(Message.raw("Please run /hp reload to apply changes"));
+                        } else {
+                            ctx.sender().sendMessage(Message.raw("Failed to restore backup"));
+                        }
+                    })
+                    .exceptionally(e -> {
+                        ctx.sender().sendMessage(Message.raw("Error restoring backup: " + e.getMessage()));
+                        return null;
+                    });
+            }
+
+            // First invocation - show warning and request confirmation
+            setPendingConfirmation(confirmationKey);
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("=== WARNING ===").color(java.awt.Color.RED));
+            ctx.sender().sendMessage(Message.raw("You are about to RESTORE from backup: " + backupName));
+            ctx.sender().sendMessage(Message.raw("This will OVERWRITE all current data including:"));
+            ctx.sender().sendMessage(Message.raw("  - All users and their permissions"));
+            ctx.sender().sendMessage(Message.raw("  - All groups and their settings"));
+            ctx.sender().sendMessage(Message.raw("  - All tracks"));
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("Current data will be LOST unless you have a backup."));
+            ctx.sender().sendMessage(Message.raw(""));
+            ctx.sender().sendMessage(Message.raw("To confirm, run the same command again within 60 seconds."));
+            ctx.sender().sendMessage(Message.raw(""));
+            return CompletableFuture.completedFuture(null);
         }
     }
 
