@@ -399,7 +399,7 @@ public class BackupManager {
                 deletions.add(deleteBackup(backup.getName()));
             }
             
-            return CompletableFuture.allOf(deletions.toArray(new CompletableFuture[0]));
+            return CompletableFuture.allOf(deletions.toArray(new CompletableFuture<?>[0]));
         });
     }
     

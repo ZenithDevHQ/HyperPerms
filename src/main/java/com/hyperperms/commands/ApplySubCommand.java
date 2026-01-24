@@ -25,6 +25,7 @@ public class ApplySubCommand extends AbstractCommand {
     private final ChangeApplier changeApplier;
     private final RequiredArg<String> codeArg;
 
+    @SuppressWarnings("this-escape")
     public ApplySubCommand(HyperPerms hyperPerms, WebEditorService webEditorService) {
         super("apply", "Apply changes from the web editor");
         this.hyperPerms = hyperPerms;

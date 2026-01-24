@@ -1,9 +1,9 @@
 {
   "Group": "com.hyperperms",
   "Name": "HyperPerms",
-  "Version": "2.4.1",
+  "Version": "${version}",
   "Description": "A production-grade permissions management plugin for Hytale with contextual permissions, wildcard support, timed permissions, chat formatting, tab list formatting, prefix/suffix management, backup system, HyFactions integration, and WerChat integration.",
-  "Website": "https://github.com/hyperperms",
+  "Website": "https://github.com/HyperSystemsDev/HyperPerms",
   "Main": "com.hyperperms.platform.HyperPermsPlugin",
   "ServerVersion": "*"
 }

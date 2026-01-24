@@ -31,6 +31,7 @@ public class HyperPermsPlugin extends JavaPlugin {
     private HytaleAdapter adapter;
     private com.hyperperms.chat.ChatListener chatListener;
     private com.hyperperms.tablist.TabListListener tabListListener;
+    private volatile boolean shuttingDown = false;
 
     /**
      * Creates a new HyperPermsPlugin instance.
@@ -81,6 +82,8 @@ public class HyperPermsPlugin extends JavaPlugin {
 
     @Override
     protected void shutdown() {
+        shuttingDown = true;
+
         // Unregister chat listener
         if (chatListener != null) {
             try {
@@ -278,12 +281,22 @@ public class HyperPermsPlugin extends JavaPlugin {
         // Save user data
         var user = hyperPerms.getUserManager().getUser(uuid);
         if (user != null) {
-            hyperPerms.getUserManager().saveUser(user).thenRun(() -> {
-                Logger.debug("Saved permissions for %s", username);
-            }).exceptionally(e -> {
-                Logger.severe("Failed to save permissions for %s", e, username);
-                return null;
-            });
+            if (shuttingDown) {
+                // During shutdown, save synchronously to avoid classloader teardown race
+                try {
+                    hyperPerms.getUserManager().saveUser(user).join();
+                    Logger.debug("Saved permissions for %s (shutdown)", username);
+                } catch (Exception e) {
+                    Logger.severe("Failed to save permissions for %s", e, username);
+                }
+            } else {
+                hyperPerms.getUserManager().saveUser(user).thenRun(() -> {
+                    Logger.debug("Saved permissions for %s", username);
+                }).exceptionally(e -> {
+                    Logger.severe("Failed to save permissions for %s", e, username);
+                    return null;
+                });
+            }
         }
 
         // Clear from cache

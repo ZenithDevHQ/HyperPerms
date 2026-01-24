@@ -46,7 +46,7 @@ import java.util.logging.Level;
  */
 public final class HyperPerms implements HyperPermsAPI {
 
-    public static final String VERSION = "2.4.1";
+    public static final String VERSION = BuildInfo.VERSION;
     
     private static HyperPerms instance;
 
@@ -240,7 +240,7 @@ public final class HyperPerms implements HyperPermsAPI {
                 updateChecker.checkForUpdates().thenAccept(info -> {
                     if (info != null) {
                         Logger.info("[Update] A new version is available: v%s (current: v%s)", info.version(), VERSION);
-                        if (info.changelog() != null && !info.changelog().isEmpty()) {
+                        if (config.isUpdateChangelogEnabled() && info.changelog() != null && !info.changelog().isEmpty()) {
                             Logger.info("[Update] Changelog: %s", info.changelog());
                         }
                     }
