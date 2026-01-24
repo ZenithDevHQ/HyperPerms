@@ -6,6 +6,7 @@ import com.hyperperms.model.Group;
 import com.hyperperms.model.Node;
 import com.hyperperms.model.User;
 import com.hyperperms.resolver.PermissionResolver;
+import com.hyperperms.util.CaseInsensitiveSet;
 import com.hyperperms.util.Logger;
 import com.hypixel.hytale.server.core.permissions.provider.PermissionProvider;
 import org.jetbrains.annotations.NotNull;
@@ -77,8 +78,11 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
         PermissionResolver.ResolvedPermissions resolved = hyperPerms.getResolver().resolve(user, contexts);
         Set<String> expanded = resolved.getExpandedPermissions(hyperPerms.getPermissionRegistry());
 
-        Logger.debug("getUserPermissions(%s) returning %d permissions", uuid, expanded.size());
-        return expanded;
+        Logger.debug("getUserPermissions(%s) returning %d permissions (case-insensitive)", uuid, expanded.size());
+
+        // Wrap in CaseInsensitiveSet for Hytale compatibility
+        // Hytale may use different case (e.g., "gameMode" vs "gamemode")
+        return new CaseInsensitiveSet(expanded);
     }
 
     // ==================== Group Permissions ====================
@@ -129,8 +133,11 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
         Set<String> expanded = hyperPerms.getResolver().resolveGroup(group, ContextSet.empty())
                 .getExpandedPermissions(hyperPerms.getPermissionRegistry());
 
-        Logger.debug("getGroupPermissions(%s) returning %d permissions", groupName, expanded.size());
-        return expanded;
+        Logger.debug("getGroupPermissions(%s) returning %d permissions (case-insensitive)", groupName, expanded.size());
+
+        // Wrap in CaseInsensitiveSet for Hytale compatibility
+        // Hytale may use different case (e.g., "gameMode" vs "gamemode")
+        return new CaseInsensitiveSet(expanded);
     }
 
     /**
@@ -165,8 +172,10 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
             }
         }
 
-        Logger.debug("getUserDirectPermissions(%s) returning %d permissions", uuid, expanded.size());
-        return expanded;
+        Logger.debug("getUserDirectPermissions(%s) returning %d permissions (case-insensitive)", uuid, expanded.size());
+        
+        // Wrap in CaseInsensitiveSet for Hytale compatibility
+        return new CaseInsensitiveSet(expanded);
     }
 
     // ==================== User-Group Membership ====================

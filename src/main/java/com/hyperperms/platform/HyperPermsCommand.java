@@ -1586,46 +1586,30 @@ public class HyperPermsCommand extends AbstractCommand {
 
     private static class CheckSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
-        private final RequiredArg<String> arg1;
-        private final OptionalArg<String> arg2;
+        private final RequiredArg<String> playerArg;
+        private final RequiredArg<String> permArg;
 
         CheckSubCommand(HyperPerms hyperPerms) {
-            super("check", "Check permission for self or another player");
+            super("check", "Check if a player has a permission");
             this.hyperPerms = hyperPerms;
-            this.arg1 = describeArg("permission_or_player", "Permission to check, or player name/UUID", ArgTypes.STRING);
-            this.arg2 = describeOptionalArg("permission", "Permission (when checking another player)", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.permArg = describeArg("permission", "Permission node to check", ArgTypes.STRING);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
-            String arg1Value = ctx.get(arg1);
-            String arg2Value = ctx.get(arg2);
+            String identifier = ctx.get(playerArg);
+            String permission = ctx.get(permArg);
 
-            if (arg2Value != null) {
-                // /hp check <player> <permission>
-                String identifier = arg1Value;
-                String permission = arg2Value;
-
-                User user = resolveUser(hyperPerms, identifier);
-                if (user == null) {
-                    ctx.sender().sendMessage(Message.raw("User not found: " + identifier));
-                    return CompletableFuture.completedFuture(null);
-                }
-
-                boolean hasPermission = hyperPerms.hasPermission(user.getUuid(), permission);
-                String result = hasPermission ? "YES" : "NO";
-                ctx.sender().sendMessage(Message.raw("Permission check: " + user.getFriendlyName() + " has " + permission + ": " + result));
-            } else {
-                // /hp check <permission> - check sender
-                // For console or non-player senders, we can't check permissions
-                // Try to get UUID from CommandSender if available
-                String permission = arg1Value;
-
-                // Since we can't easily get the sender's UUID from the Hytale API without more context,
-                // we'll provide a helpful message
-                ctx.sender().sendMessage(Message.raw("To check your own permission, use: /hp check <yourname> " + permission));
-                ctx.sender().sendMessage(Message.raw("Example: /hp check PlayerName " + permission));
+            User user = resolveUser(hyperPerms, identifier);
+            if (user == null) {
+                ctx.sender().sendMessage(Message.raw("User not found: " + identifier));
+                return CompletableFuture.completedFuture(null);
             }
+
+            boolean hasPermission = hyperPerms.hasPermission(user.getUuid(), permission);
+            String result = hasPermission ? "&aYES" : "&cNO";
+            ctx.sender().sendMessage(Message.raw("Permission check: " + user.getFriendlyName() + " has " + permission + ": " + result));
 
             return CompletableFuture.completedFuture(null);
         }

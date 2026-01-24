@@ -402,6 +402,7 @@ public final class PermissionRegistry {
      * <ul>
      *   <li>Simplified aliases (e.g., hytale.command.gamemode) for user convenience</li>
      *   <li>Actual Hytale paths (e.g., hytale.command.player.gamemode) for proper checking</li>
+     *   <li>Legacy system format (e.g., hytale.system.command.gamemode) for backwards compatibility</li>
      * </ul>
      * <p>
      * The PermissionAliases class handles mapping between simplified and actual permissions.
@@ -412,6 +413,35 @@ public final class PermissionRegistry {
         register("hytale.command.*", "Access to all Hytale commands", "hytale", "Hytale");
         register("hytale.editor.*", "Access to all editor features", "hytale", "Hytale");
         register("hytale.camera.*", "Access to all camera features", "hytale", "Hytale");
+        register("hytale.system.*", "Legacy system permissions", "hytale", "Hytale");
+        register("hytale.system.command.*", "Legacy system command permissions", "hytale", "Hytale");
+
+        // ==================== Legacy System Format (hytale.system.command.*) ====================
+        register("hytale.system.command.gamemode", "Change game mode (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.give", "Give items (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.kick", "Kick players (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.ban", "Ban players (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.unban", "Unban players (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.kill", "Kill entities (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.heal", "Heal entities (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.tp", "Teleport (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.teleport", "Teleport (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.spawn", "Spawn commands (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.stop", "Stop server (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.op", "Operator commands (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.opadd", "Add operator (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.opremove", "Remove operator (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.who", "List players (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.help", "Help command (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.version", "Version command (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.ping", "Ping command (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.time", "Time command (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.weather", "Weather command (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.clear", "Clear inventory (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.effect", "Effect commands (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.emote", "Emote command (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.plugin", "Plugin commands (legacy format)", "hytale", "Hytale");
+        register("hytale.system.command.backup", "Backup command (legacy format)", "hytale", "Hytale");
 
         // ==================== Core Static Permissions (from HytalePermissions.class) ====================
         register("hytale.editor.asset", "Access asset editor", "hytale", "Hytale");
@@ -446,6 +476,131 @@ public final class PermissionRegistry {
         register("hytale.command.damage", "Damage entities (alias)", "hytale", "Hytale");
         register("hytale.command.stop", "Stop server (alias)", "hytale", "Hytale");
         register("hytale.command.backup", "Backup server (alias)", "hytale", "Hytale");
+
+        // ==================== Additional Web Editor Simplified Permissions ====================
+        // Moderation
+        register("hytale.command.ban", "Ban players (simplified)", "hytale", "Hytale");
+        register("hytale.command.unban", "Unban players (simplified)", "hytale", "Hytale");
+        register("hytale.command.opadd", "Add operator (simplified)", "hytale", "Hytale");
+        register("hytale.command.opremove", "Remove operator (simplified)", "hytale", "Hytale");
+        register("hytale.command.opself", "Op yourself (simplified)", "hytale", "Hytale");
+        // Whitelist
+        register("hytale.command.whitelist", "Whitelist commands", "hytale", "Hytale");
+        register("hytale.command.whitelist.*", "All whitelist commands", "hytale", "Hytale");
+        register("hytale.command.whitelist.add", "Add to whitelist", "hytale", "Hytale");
+        register("hytale.command.whitelist.remove", "Remove from whitelist", "hytale", "Hytale");
+        register("hytale.command.whitelist.list", "List whitelist", "hytale", "Hytale");
+        register("hytale.command.whitelist.on", "Enable whitelist", "hytale", "Hytale");
+        register("hytale.command.whitelist.off", "Disable whitelist", "hytale", "Hytale");
+        // Teleportation
+        register("hytale.command.tp", "Teleport (simplified)", "hytale", "Hytale");
+        register("hytale.command.teleport", "Teleport (simplified)", "hytale", "Hytale");
+        register("hytale.command.tpall", "Teleport all players", "hytale", "Hytale");
+        register("hytale.command.tpback", "Teleport back", "hytale", "Hytale");
+        register("hytale.command.tpforward", "Teleport forward", "hytale", "Hytale");
+        register("hytale.command.tptop", "Teleport to top", "hytale", "Hytale");
+        register("hytale.command.tphome", "Teleport to home", "hytale", "Hytale");
+        register("hytale.command.spawnset", "Set spawn point", "hytale", "Hytale");
+        // Building/Editor
+        register("hytale.command.fill", "Fill selection", "hytale", "Hytale");
+        register("hytale.command.walls", "Create walls", "hytale", "Hytale");
+        register("hytale.command.hollow", "Hollow selection", "hytale", "Hytale");
+        register("hytale.command.replace", "Replace blocks", "hytale", "Hytale");
+        register("hytale.command.copy", "Copy selection", "hytale", "Hytale");
+        register("hytale.command.cut", "Cut selection", "hytale", "Hytale");
+        register("hytale.command.paste", "Paste clipboard", "hytale", "Hytale");
+        register("hytale.command.undo", "Undo action", "hytale", "Hytale");
+        register("hytale.command.redo", "Redo action", "hytale", "Hytale");
+        register("hytale.command.pos1", "Set position 1", "hytale", "Hytale");
+        register("hytale.command.pos2", "Set position 2", "hytale", "Hytale");
+        register("hytale.command.brush", "Brush commands", "hytale", "Hytale");
+        register("hytale.command.prefab", "Prefab commands", "hytale", "Hytale");
+        // Entity
+        register("hytale.command.entity", "Entity commands", "hytale", "Hytale");
+        register("hytale.command.entity.spawn", "Spawn entities", "hytale", "Hytale");
+        register("hytale.command.entity.remove", "Remove entities", "hytale", "Hytale");
+        register("hytale.command.entity.clone", "Clone entities", "hytale", "Hytale");
+        register("hytale.command.npc", "NPC commands", "hytale", "Hytale");
+        register("hytale.command.mount", "Mount command", "hytale", "Hytale");
+        register("hytale.command.dismount", "Dismount command", "hytale", "Hytale");
+        register("hytale.command.hitbox", "Hitbox debug", "hytale", "Hytale");
+        // World
+        register("hytale.command.worldgen", "Worldgen commands", "hytale", "Hytale");
+        register("hytale.command.chunk", "Chunk commands", "hytale", "Hytale");
+        register("hytale.command.warp", "Warp commands", "hytale", "Hytale");
+        register("hytale.command.time", "Time commands", "hytale", "Hytale");
+        register("hytale.command.time.set", "Set time", "hytale", "Hytale");
+        register("hytale.command.time.get", "Get time", "hytale", "Hytale");
+        register("hytale.command.weather", "Weather commands", "hytale", "Hytale");
+        register("hytale.command.weather.set", "Set weather", "hytale", "Hytale");
+        register("hytale.command.weather.get", "Get weather", "hytale", "Hytale");
+        // Audio/Visual
+        register("hytale.command.sound", "Sound commands", "hytale", "Hytale");
+        register("hytale.command.sound.play", "Play sounds", "hytale", "Hytale");
+        register("hytale.command.particle", "Particle commands", "hytale", "Hytale");
+        register("hytale.command.ambience", "Ambience commands", "hytale", "Hytale");
+        register("hytale.command.tint", "Tint commands", "hytale", "Hytale");
+        register("hytale.command.lighting", "Lighting commands", "hytale", "Hytale");
+        // Server/Debug
+        register("hytale.command.debug", "Debug commands", "hytale", "Hytale");
+        register("hytale.command.log", "Log commands", "hytale", "Hytale");
+        register("hytale.command.network", "Network commands", "hytale", "Hytale");
+        register("hytale.command.stresstest", "Stress test commands", "hytale", "Hytale");
+        // Player state
+        register("hytale.command.player", "Player commands", "hytale", "Hytale");
+        register("hytale.command.inventory", "Inventory commands", "hytale", "Hytale");
+        register("hytale.command.sleep", "Sleep commands", "hytale", "Hytale");
+        register("hytale.command.effect", "Effect commands", "hytale", "Hytale");
+        register("hytale.command.stats", "Stats commands", "hytale", "Hytale");
+        // Instance/Auth
+        register("hytale.command.instance", "Instance commands", "hytale", "Hytale");
+        register("hytale.command.auth", "Auth commands", "hytale", "Hytale");
+        register("hytale.command.hub", "Hub command", "hytale", "Hytale");
+        register("hytale.command.leave", "Leave command", "hytale", "Hytale");
+
+        // ==================== Server Ban/Unban (actual paths) ====================
+        register("hytale.command.server.ban", "Ban players", "hytale", "Hytale");
+        register("hytale.command.server.unban", "Unban players", "hytale", "Hytale");
+        register("hytale.command.server.whitelist", "Whitelist commands", "hytale", "Hytale");
+        register("hytale.command.server.whitelist.add", "Add to whitelist", "hytale", "Hytale");
+        register("hytale.command.server.whitelist.remove", "Remove from whitelist", "hytale", "Hytale");
+        register("hytale.command.server.whitelist.list", "List whitelist", "hytale", "Hytale");
+        register("hytale.command.server.whitelist.on", "Enable whitelist", "hytale", "Hytale");
+        register("hytale.command.server.whitelist.off", "Disable whitelist", "hytale", "Hytale");
+        register("hytale.command.server.instance", "Instance commands", "hytale", "Hytale");
+        register("hytale.command.server.hub", "Hub command", "hytale", "Hytale");
+        register("hytale.command.server.leave", "Leave command", "hytale", "Hytale");
+
+        // ==================== Player Teleport (actual paths) ====================
+        register("hytale.command.player.teleport", "Teleport command", "hytale", "Hytale");
+        register("hytale.command.player.teleport.all", "Teleport all", "hytale", "Hytale");
+        register("hytale.command.player.teleport.back", "Teleport back", "hytale", "Hytale");
+        register("hytale.command.player.teleport.forward", "Teleport forward", "hytale", "Hytale");
+        register("hytale.command.player.teleport.top", "Teleport to top", "hytale", "Hytale");
+        register("hytale.command.player.teleport.home", "Teleport home", "hytale", "Hytale");
+        register("hytale.command.player.mount", "Mount command", "hytale", "Hytale");
+        register("hytale.command.player.dismount", "Dismount command", "hytale", "Hytale");
+
+        // ==================== World Time/Weather (actual paths) ====================
+        register("hytale.command.world.time", "Time commands", "hytale", "Hytale");
+        register("hytale.command.world.time.set", "Set time", "hytale", "Hytale");
+        register("hytale.command.world.time.get", "Get time", "hytale", "Hytale");
+        register("hytale.command.world.weather", "Weather commands", "hytale", "Hytale");
+        register("hytale.command.world.weather.set", "Set weather", "hytale", "Hytale");
+        register("hytale.command.world.weather.get", "Get weather", "hytale", "Hytale");
+        register("hytale.command.world.warp", "Warp commands", "hytale", "Hytale");
+        register("hytale.command.world.entity.spawn", "Spawn entities", "hytale", "Hytale");
+        register("hytale.command.world.entity.npc", "NPC commands", "hytale", "Hytale");
+
+        // ==================== Editor Selection (actual paths) ====================
+        register("hytale.editor.selection.fill", "Fill selection", "hytale", "Hytale");
+        register("hytale.editor.selection.walls", "Create walls", "hytale", "Hytale");
+        register("hytale.editor.selection.hollow", "Hollow selection", "hytale", "Hytale");
+        register("hytale.editor.selection.replace", "Replace blocks", "hytale", "Hytale");
+
+        // ==================== Utility Commands (actual paths) ====================
+        register("hytale.command.utility.particle", "Particle effects", "hytale", "Hytale");
+        register("hytale.command.utility.ambience", "Ambience commands", "hytale", "Hytale");
 
         // ==================== Actual Player Commands (hytale.command.player.*) ====================
         register("hytale.command.player", "Player command root", "hytale", "Hytale");

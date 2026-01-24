@@ -172,17 +172,54 @@ public final class PermissionResolver {
 
         /**
          * Checks a permission against the resolved permissions.
+         * <p>
+         * This method considers both wildcard matching and permission aliases.
+         * If the permission itself is not matched, it will check if any of its
+         * aliased forms are granted.
          *
          * @param permission the permission to check
          * @return the result
          */
         @NotNull
         public TriState check(@NotNull String permission) {
-            return WildcardMatcher.check(permission.toLowerCase(), permissions);
+            String lowerPerm = permission.toLowerCase();
+
+            // First try direct wildcard matching
+            TriState result = WildcardMatcher.check(lowerPerm, permissions);
+            if (result != TriState.UNDEFINED) {
+                return result;
+            }
+
+            // If not found, check aliases
+            // This handles cases like checking "hytale.command.player.gamemode" when
+            // user has "hytale.command.gamemode" (simplified alias)
+            PermissionAliases aliases = PermissionAliases.getInstance();
+
+            // Check if any simplified alias of this permission is granted
+            Set<String> simplifiedAliases = aliases.getAliases(lowerPerm);
+            for (String alias : simplifiedAliases) {
+                result = WildcardMatcher.check(alias, permissions);
+                if (result != TriState.UNDEFINED) {
+                    return result;
+                }
+            }
+
+            // Check if any actual permission this maps to is granted
+            Set<String> actualPerms = aliases.getActualPermissions(lowerPerm);
+            for (String actual : actualPerms) {
+                result = WildcardMatcher.check(actual, permissions);
+                if (result != TriState.UNDEFINED) {
+                    return result;
+                }
+            }
+
+            return TriState.UNDEFINED;
         }
 
         /**
          * Checks a permission with detailed trace information.
+         * <p>
+         * This method considers both wildcard matching and permission aliases.
          *
          * @param permission the permission to check
          * @return the trace with full details
@@ -191,6 +228,33 @@ public final class PermissionResolver {
         public PermissionTrace checkWithTrace(@NotNull String permission) {
             String lowerPerm = permission.toLowerCase();
             MatchResult matchResult = WildcardMatcher.checkWithTrace(lowerPerm, permissions);
+
+            // If not matched, check aliases
+            if (!matchResult.isMatched()) {
+                PermissionAliases aliases = PermissionAliases.getInstance();
+
+                // Check simplified aliases (actual -> simplified)
+                Set<String> simplifiedAliases = aliases.getAliases(lowerPerm);
+                for (String alias : simplifiedAliases) {
+                    MatchResult aliasResult = WildcardMatcher.checkWithTrace(alias, permissions);
+                    if (aliasResult.isMatched()) {
+                        matchResult = aliasResult;
+                        break;
+                    }
+                }
+
+                // If still not matched, check actual permissions (simplified -> actual)
+                if (!matchResult.isMatched()) {
+                    Set<String> actualPerms = aliases.getActualPermissions(lowerPerm);
+                    for (String actual : actualPerms) {
+                        MatchResult actualResult = WildcardMatcher.checkWithTrace(actual, permissions);
+                        if (actualResult.isMatched()) {
+                            matchResult = actualResult;
+                            break;
+                        }
+                    }
+                }
+            }
 
             if (!matchResult.isMatched()) {
                 return PermissionTrace.notFound(permission, resolvedContexts);

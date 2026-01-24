@@ -56,6 +56,34 @@ public final class PermissionAliases {
      * Registers all permission aliases.
      */
     private void registerAllAliases() {
+        // ==================== Legacy System Command Format ====================
+        // Format: hytale.system.command.* → hytale.command.* (used by some older configs)
+        alias("hytale.system.command.gamemode", "hytale.command.player.gamemode", "hytale.command.gamemode");
+        alias("hytale.system.command.give", "hytale.command.player.inventory.give", "hytale.command.give");
+        alias("hytale.system.command.kick", "hytale.command.server.kick", "hytale.command.kick");
+        alias("hytale.system.command.ban", "hytale.command.server.ban", "hytale.command.ban");
+        alias("hytale.system.command.unban", "hytale.command.server.unban", "hytale.command.unban");
+        alias("hytale.system.command.kill", "hytale.command.player.kill", "hytale.command.kill");
+        alias("hytale.system.command.heal", "hytale.command.player.effect.apply", "hytale.command.heal");
+        alias("hytale.system.command.tp", "hytale.command.player.teleport", "hytale.command.tp");
+        alias("hytale.system.command.teleport", "hytale.command.player.teleport", "hytale.command.teleport");
+        alias("hytale.system.command.spawn", "hytale.command.world.spawnblock", "hytale.command.spawn");
+        alias("hytale.system.command.stop", "hytale.command.server.stop", "hytale.command.stop");
+        alias("hytale.system.command.op", "hytale.command.op", "hytale.command.op");
+        alias("hytale.system.command.opadd", "hytale.command.op.add", "hytale.command.opadd");
+        alias("hytale.system.command.opremove", "hytale.command.op.remove", "hytale.command.opremove");
+        alias("hytale.system.command.who", "hytale.command.server.who", "hytale.command.who");
+        alias("hytale.system.command.help", "hytale.command.utility.help", "hytale.command.help");
+        alias("hytale.system.command.version", "hytale.command.debug.version", "hytale.command.version");
+        alias("hytale.system.command.ping", "hytale.command.debug.ping", "hytale.command.ping");
+        alias("hytale.system.command.time", "hytale.command.world.time", "hytale.command.time");
+        alias("hytale.system.command.weather", "hytale.command.world.weather", "hytale.command.weather");
+        alias("hytale.system.command.clear", "hytale.command.player.inventory.clear", "hytale.command.clear");
+        alias("hytale.system.command.effect", "hytale.command.player.effect.apply", "hytale.command.effect");
+        alias("hytale.system.command.emote", "hytale.command.emote");
+        alias("hytale.system.command.plugin", "hytale.command.plugin");
+        alias("hytale.system.command.backup", "hytale.command.utility.backup", "hytale.command.backup");
+
         // ==================== Hytale Editor Permissions ====================
         // Case sensitivity matters!
         alias("hytale.editor.buildertools", "hytale.editor.builderTools");
@@ -310,6 +338,305 @@ public final class PermissionAliases {
             "hytale.editor.packs.create",
             "hytale.editor.packs.edit",
             "hytale.editor.packs.delete");
+
+        // ==================== Additional Web Editor Permissions ====================
+        // Moderation commands
+        alias("hytale.command.ban", "hytale.command.server.ban");
+        alias("hytale.command.unban", "hytale.command.server.unban");
+        alias("hytale.command.opadd", "hytale.command.op.add");
+        alias("hytale.command.opremove", "hytale.command.op.remove");
+        alias("hytale.command.opself", "hytale.command.op.self");
+
+        // Whitelist commands
+        alias("hytale.command.whitelist", "hytale.command.server.whitelist");
+        alias("hytale.command.whitelist.add", "hytale.command.server.whitelist.add");
+        alias("hytale.command.whitelist.remove", "hytale.command.server.whitelist.remove");
+        alias("hytale.command.whitelist.list", "hytale.command.server.whitelist.list");
+        alias("hytale.command.whitelist.on", "hytale.command.server.whitelist.on");
+        alias("hytale.command.whitelist.off", "hytale.command.server.whitelist.off");
+
+        // Teleportation commands
+        alias("hytale.command.tp", "hytale.command.player.teleport");
+        alias("hytale.command.teleport", "hytale.command.player.teleport");
+        alias("hytale.command.tpall", "hytale.command.player.teleport.all");
+        alias("hytale.command.tpback", "hytale.command.player.teleport.back");
+        alias("hytale.command.tpforward", "hytale.command.player.teleport.forward");
+        alias("hytale.command.tptop", "hytale.command.player.teleport.top");
+        alias("hytale.command.tphome", "hytale.command.player.teleport.home");
+        alias("hytale.command.spawnset", "hytale.command.world.spawnblock");
+
+        // Building/Editor commands (simplified -> actual)
+        alias("hytale.command.fill", "hytale.editor.selection.fill");
+        alias("hytale.command.walls", "hytale.editor.selection.walls");
+        alias("hytale.command.hollow", "hytale.editor.selection.hollow");
+        alias("hytale.command.replace", "hytale.editor.selection.replace");
+        alias("hytale.command.copy", "hytale.editor.selection.clipboard");
+        alias("hytale.command.cut", "hytale.editor.selection.clipboard");
+        alias("hytale.command.paste", "hytale.editor.selection.clipboard");
+        alias("hytale.command.undo", "hytale.editor.history");
+        alias("hytale.command.redo", "hytale.editor.history");
+        alias("hytale.command.pos1", "hytale.editor.selection.use");
+        alias("hytale.command.pos2", "hytale.editor.selection.use");
+        alias("hytale.command.brush", "hytale.editor.brush.use");
+        alias("hytale.command.prefab", "hytale.editor.prefab.use");
+
+        // Entity commands
+        alias("hytale.command.entity", "hytale.command.world.entity");
+        alias("hytale.command.entity.spawn", "hytale.command.world.entity.spawn");
+        alias("hytale.command.entity.remove", "hytale.command.world.entity.remove");
+        alias("hytale.command.entity.clone", "hytale.command.world.entity.clone");
+        alias("hytale.command.npc", "hytale.command.world.entity.npc");
+        alias("hytale.command.mount", "hytale.command.player.mount");
+        alias("hytale.command.dismount", "hytale.command.player.dismount");
+        alias("hytale.command.hitbox", "hytale.command.debug.component.hitboxcollision");
+
+        // World commands
+        alias("hytale.command.worldgen", "hytale.command.world.worldgen");
+        alias("hytale.command.chunk", "hytale.command.world.chunk");
+        alias("hytale.command.warp", "hytale.command.world.warp");
+        alias("hytale.command.time", "hytale.command.world.time");
+        alias("hytale.command.time.set", "hytale.command.world.time.set");
+        alias("hytale.command.time.get", "hytale.command.world.time.get");
+        alias("hytale.command.weather", "hytale.command.world.weather");
+        alias("hytale.command.weather.set", "hytale.command.world.weather.set");
+        alias("hytale.command.weather.get", "hytale.command.world.weather.get");
+
+        // Audio/Visual commands
+        alias("hytale.command.sound", "hytale.command.utility.sound");
+        alias("hytale.command.sound.play", "hytale.command.utility.sound.play2d", "hytale.command.utility.sound.play3d");
+        alias("hytale.command.particle", "hytale.command.utility.particle");
+        alias("hytale.command.ambience", "hytale.command.utility.ambience");
+        alias("hytale.command.tint", "hytale.command.world.chunk.tint");
+        alias("hytale.command.lighting", "hytale.command.utility.lighting");
+
+        // Server/Debug commands
+        alias("hytale.command.debug", "hytale.command.debug");
+        alias("hytale.command.log", "hytale.command.debug.log");
+        alias("hytale.command.network", "hytale.command.utility.net.network");
+        alias("hytale.command.stresstest", "hytale.command.debug.stresstest");
+
+        // Player state commands
+        alias("hytale.command.player", "hytale.command.player");
+        alias("hytale.command.inventory", "hytale.command.player.inventory");
+        alias("hytale.command.sleep", "hytale.command.utility.sleep");
+        alias("hytale.command.effect", "hytale.command.player.effect");
+        alias("hytale.command.stats", "hytale.command.player.stats");
+
+        // Instance/Auth commands
+        alias("hytale.command.instance", "hytale.command.server.instance");
+        alias("hytale.command.auth", "hytale.command.server.auth");
+        alias("hytale.command.hub", "hytale.command.server.hub");
+        alias("hytale.command.leave", "hytale.command.server.leave");
+
+        // ==================== HyperPerms Plugin Permissions ====================
+        // These ensure hyperperms.* wildcard properly expands to all HyperPerms permissions
+        aliasWildcard("hyperperms.*",
+            // Command wildcards
+            "hyperperms.command.*",
+            "hyperperms.admin.*",
+            "hyperperms.chat.*",
+            // User commands
+            "hyperperms.command.user.info",
+            "hyperperms.command.user.info.others",
+            "hyperperms.command.user.permission",
+            "hyperperms.command.user.group",
+            "hyperperms.command.user.promote",
+            "hyperperms.command.user.demote",
+            "hyperperms.command.user.clear",
+            "hyperperms.command.user.clone",
+            "hyperperms.command.user.setprefix",
+            "hyperperms.command.user.setsuffix",
+            // Group commands
+            "hyperperms.command.group.info",
+            "hyperperms.command.group.list",
+            "hyperperms.command.group.create",
+            "hyperperms.command.group.delete",
+            "hyperperms.command.group.permission",
+            "hyperperms.command.group.parent",
+            "hyperperms.command.group.modify",
+            "hyperperms.command.group.rename",
+            "hyperperms.command.group.setweight",
+            "hyperperms.command.group.setprefix",
+            "hyperperms.command.group.setsuffix",
+            "hyperperms.command.group.setdisplayname",
+            // Track commands
+            "hyperperms.command.track.info",
+            "hyperperms.command.track.list",
+            "hyperperms.command.track.create",
+            "hyperperms.command.track.delete",
+            "hyperperms.command.track.modify",
+            "hyperperms.command.track.append",
+            "hyperperms.command.track.insert",
+            "hyperperms.command.track.remove",
+            // Admin commands
+            "hyperperms.command.reload",
+            "hyperperms.command.verbose",
+            "hyperperms.command.cache",
+            "hyperperms.command.export",
+            "hyperperms.command.import",
+            "hyperperms.command.listgroups",
+            "hyperperms.command.listtracks",
+            "hyperperms.command.check",
+            "hyperperms.command.check.self",
+            "hyperperms.command.check.others",
+            // Editor commands
+            "hyperperms.command.editor",
+            "hyperperms.command.apply",
+            // Debug commands
+            "hyperperms.command.debug",
+            "hyperperms.command.debug.tree",
+            "hyperperms.command.debug.resolve",
+            "hyperperms.command.debug.contexts",
+            // Backup commands
+            "hyperperms.command.backup",
+            "hyperperms.command.backup.create",
+            "hyperperms.command.backup.list",
+            "hyperperms.command.backup.restore",
+            "hyperperms.command.backup.delete",
+            // Permission registry commands
+            "hyperperms.command.perms",
+            "hyperperms.command.perms.list",
+            "hyperperms.command.perms.search",
+            // Chat permissions
+            "hyperperms.chat.color",
+            "hyperperms.chat.color.hex",
+            "hyperperms.chat.format",
+            "hyperperms.chat.format.bold",
+            "hyperperms.chat.format.italic",
+            "hyperperms.chat.format.underline",
+            "hyperperms.chat.format.strikethrough",
+            "hyperperms.chat.format.magic",
+            "hyperperms.chat.links",
+            "hyperperms.chat.bypass.cooldown",
+            "hyperperms.chat.bypass.filter",
+            "hyperperms.chat.broadcast",
+            "hyperperms.chat.pm",
+            "hyperperms.chat.pm.receive",
+            "hyperperms.chat.socialspy");
+
+        aliasWildcard("hyperperms.command.*",
+            "hyperperms.command.user.info",
+            "hyperperms.command.user.info.others",
+            "hyperperms.command.user.permission",
+            "hyperperms.command.user.group",
+            "hyperperms.command.user.promote",
+            "hyperperms.command.user.demote",
+            "hyperperms.command.user.clear",
+            "hyperperms.command.user.clone",
+            "hyperperms.command.user.setprefix",
+            "hyperperms.command.user.setsuffix",
+            "hyperperms.command.group.info",
+            "hyperperms.command.group.list",
+            "hyperperms.command.group.create",
+            "hyperperms.command.group.delete",
+            "hyperperms.command.group.permission",
+            "hyperperms.command.group.parent",
+            "hyperperms.command.group.modify",
+            "hyperperms.command.group.rename",
+            "hyperperms.command.group.setweight",
+            "hyperperms.command.group.setprefix",
+            "hyperperms.command.group.setsuffix",
+            "hyperperms.command.group.setdisplayname",
+            "hyperperms.command.track.info",
+            "hyperperms.command.track.list",
+            "hyperperms.command.track.create",
+            "hyperperms.command.track.delete",
+            "hyperperms.command.track.modify",
+            "hyperperms.command.track.append",
+            "hyperperms.command.track.insert",
+            "hyperperms.command.track.remove",
+            "hyperperms.command.reload",
+            "hyperperms.command.verbose",
+            "hyperperms.command.cache",
+            "hyperperms.command.export",
+            "hyperperms.command.import",
+            "hyperperms.command.listgroups",
+            "hyperperms.command.listtracks",
+            "hyperperms.command.check",
+            "hyperperms.command.check.self",
+            "hyperperms.command.check.others",
+            "hyperperms.command.editor",
+            "hyperperms.command.apply",
+            "hyperperms.command.debug",
+            "hyperperms.command.debug.tree",
+            "hyperperms.command.debug.resolve",
+            "hyperperms.command.debug.contexts",
+            "hyperperms.command.backup",
+            "hyperperms.command.backup.create",
+            "hyperperms.command.backup.list",
+            "hyperperms.command.backup.restore",
+            "hyperperms.command.backup.delete",
+            "hyperperms.command.perms",
+            "hyperperms.command.perms.list",
+            "hyperperms.command.perms.search");
+
+        aliasWildcard("hyperperms.command.user.*",
+            "hyperperms.command.user.info",
+            "hyperperms.command.user.info.others",
+            "hyperperms.command.user.permission",
+            "hyperperms.command.user.group",
+            "hyperperms.command.user.promote",
+            "hyperperms.command.user.demote",
+            "hyperperms.command.user.clear",
+            "hyperperms.command.user.clone",
+            "hyperperms.command.user.setprefix",
+            "hyperperms.command.user.setsuffix");
+
+        aliasWildcard("hyperperms.command.group.*",
+            "hyperperms.command.group.info",
+            "hyperperms.command.group.list",
+            "hyperperms.command.group.create",
+            "hyperperms.command.group.delete",
+            "hyperperms.command.group.permission",
+            "hyperperms.command.group.parent",
+            "hyperperms.command.group.modify",
+            "hyperperms.command.group.rename",
+            "hyperperms.command.group.setweight",
+            "hyperperms.command.group.setprefix",
+            "hyperperms.command.group.setsuffix",
+            "hyperperms.command.group.setdisplayname");
+
+        aliasWildcard("hyperperms.command.track.*",
+            "hyperperms.command.track.info",
+            "hyperperms.command.track.list",
+            "hyperperms.command.track.create",
+            "hyperperms.command.track.delete",
+            "hyperperms.command.track.modify",
+            "hyperperms.command.track.append",
+            "hyperperms.command.track.insert",
+            "hyperperms.command.track.remove");
+
+        aliasWildcard("hyperperms.command.backup.*",
+            "hyperperms.command.backup.create",
+            "hyperperms.command.backup.list",
+            "hyperperms.command.backup.restore",
+            "hyperperms.command.backup.delete");
+
+        aliasWildcard("hyperperms.command.debug.*",
+            "hyperperms.command.debug.tree",
+            "hyperperms.command.debug.resolve",
+            "hyperperms.command.debug.contexts");
+
+        aliasWildcard("hyperperms.command.perms.*",
+            "hyperperms.command.perms.list",
+            "hyperperms.command.perms.search");
+
+        aliasWildcard("hyperperms.chat.*",
+            "hyperperms.chat.color",
+            "hyperperms.chat.color.hex",
+            "hyperperms.chat.format",
+            "hyperperms.chat.format.bold",
+            "hyperperms.chat.format.italic",
+            "hyperperms.chat.format.underline",
+            "hyperperms.chat.format.strikethrough",
+            "hyperperms.chat.format.magic",
+            "hyperperms.chat.links",
+            "hyperperms.chat.bypass.cooldown",
+            "hyperperms.chat.bypass.filter",
+            "hyperperms.chat.broadcast",
+            "hyperperms.chat.pm",
+            "hyperperms.chat.pm.receive",
+            "hyperperms.chat.socialspy");
 
         // ==================== HyperHomes Plugin ====================
         alias("hyperhomes.homes", "com.hyperhomes.hyperhomes.command.homes");
