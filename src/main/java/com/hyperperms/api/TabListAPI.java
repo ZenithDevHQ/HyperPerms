@@ -167,16 +167,17 @@ public final class TabListAPI {
     }
 
     private static void updateCache(UUID uuid, @Nullable String tabListName, @Nullable Integer weight) {
-        CachedData existing = cache.get(uuid);
-        if (existing != null && !existing.isExpired()) {
-            // Merge with existing
-            cache.put(uuid, new CachedData(
-                tabListName != null ? tabListName : existing.tabListName,
-                weight != null ? weight : existing.weight
-            ));
-        } else {
-            cache.put(uuid, new CachedData(tabListName, weight));
-        }
+        // Use compute() for atomic read-merge-write to prevent race with invalidate()
+        cache.compute(uuid, (key, existing) -> {
+            if (existing != null && !existing.isExpired()) {
+                return new CachedData(
+                    tabListName != null ? tabListName : existing.tabListName,
+                    weight != null ? weight : existing.weight
+                );
+            } else {
+                return new CachedData(tabListName, weight);
+            }
+        });
     }
 
     private static class CachedData {

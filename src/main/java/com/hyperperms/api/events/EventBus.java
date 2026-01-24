@@ -1,5 +1,6 @@
 package com.hyperperms.api.events;
 
+import com.hyperperms.util.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -64,7 +65,7 @@ public final class EventBus {
                     ((Consumer<T>) handler).accept(event);
                 } catch (Exception e) {
                     // Log but don't propagate to avoid disrupting other handlers
-                    e.printStackTrace();
+                    Logger.severe("Exception in event handler for " + event.getClass().getSimpleName(), e);
                 }
             }
         }

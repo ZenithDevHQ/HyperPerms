@@ -9,6 +9,9 @@ import com.hyperperms.util.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.hyperperms.api.context.Context;
+import com.hyperperms.api.context.ContextSet;
+
 import java.io.IOException;
 import java.nio.file.*;
 import java.sql.*;
@@ -31,6 +34,13 @@ import java.util.concurrent.TimeUnit;
  *   <li>Place it in the server's plugins/HyperPerms/lib/ directory</li>
  *   <li>Set storage.type to "sqlite" in config.json</li>
  * </ol>
+ * <p>
+ * <b>IMPORTANT - Thread Safety:</b> All database operations MUST execute on the
+ * single-threaded executor to ensure transaction isolation. The current implementation
+ * shares a single Connection and uses manual transaction management (setAutoCommit/commit).
+ * Do not change the executor to multi-threaded without implementing connection pooling,
+ * as concurrent access to the shared connection would cause transaction interference and
+ * potential data corruption.
  */
 public final class SQLiteStorageProvider implements StorageProvider {
 
@@ -256,11 +266,12 @@ public final class SQLiteStorageProvider implements StorageProvider {
                 boolean value = rs.getInt("value") == 1;
                 Long expiryMs = rs.getObject("expiry") != null ? rs.getLong("expiry") : null;
                 Instant expiry = expiryMs != null ? Instant.ofEpochMilli(expiryMs) : null;
-                // TODO: deserialize contexts from contexts_json
+                ContextSet contexts = deserializeContexts(rs.getString("contexts_json"));
 
                 Node node = Node.builder(permission)
                     .value(value)
                     .expiry(expiry)
+                    .contexts(contexts)
                     .build();
                 user.addNode(node);
             }
@@ -310,7 +321,7 @@ public final class SQLiteStorageProvider implements StorageProvider {
                         stmt.setString(2, node.getPermission());
                         stmt.setInt(3, node.getValue() ? 1 : 0);
                         stmt.setObject(4, node.getExpiry() != null ? node.getExpiry().toEpochMilli() : null);
-                        stmt.setString(5, "[]"); // TODO: serialize contexts
+                        stmt.setString(5, serializeContexts(node.getContexts()));
                         stmt.addBatch();
                     }
                     stmt.executeBatch();
@@ -352,12 +363,18 @@ public final class SQLiteStorageProvider implements StorageProvider {
         return CompletableFuture.supplyAsync(() -> {
             Map<UUID, User> users = new HashMap<>();
             try {
-                String sql = "SELECT uuid FROM users";
+                String sql = "SELECT * FROM users";
                 try (Statement stmt = connection.createStatement();
                      ResultSet rs = stmt.executeQuery(sql)) {
                     while (rs.next()) {
                         UUID uuid = UUID.fromString(rs.getString("uuid"));
-                        loadUser(uuid).join().ifPresent(user -> users.put(uuid, user));
+                        String username = rs.getString("username");
+                        User user = new User(uuid, username);
+                        user.setPrimaryGroup(rs.getString("primary_group"));
+                        user.setCustomPrefix(rs.getString("custom_prefix"));
+                        user.setCustomSuffix(rs.getString("custom_suffix"));
+                        loadUserNodes(user);
+                        users.put(uuid, user);
                     }
                 }
             } catch (SQLException e) {
@@ -450,10 +467,12 @@ public final class SQLiteStorageProvider implements StorageProvider {
                 boolean value = rs.getInt("value") == 1;
                 Long expiryMs = rs.getObject("expiry") != null ? rs.getLong("expiry") : null;
                 Instant expiry = expiryMs != null ? Instant.ofEpochMilli(expiryMs) : null;
+                ContextSet contexts = deserializeContexts(rs.getString("contexts_json"));
 
                 Node node = Node.builder(permission)
                     .value(value)
                     .expiry(expiry)
+                    .contexts(contexts)
                     .build();
                 group.addNode(node);
             }
@@ -506,7 +525,7 @@ public final class SQLiteStorageProvider implements StorageProvider {
                         stmt.setString(2, node.getPermission());
                         stmt.setInt(3, node.getValue() ? 1 : 0);
                         stmt.setObject(4, node.getExpiry() != null ? node.getExpiry().toEpochMilli() : null);
-                        stmt.setString(5, "[]");
+                        stmt.setString(5, serializeContexts(node.getContexts()));
                         stmt.addBatch();
                     }
                     stmt.executeBatch();
@@ -548,12 +567,19 @@ public final class SQLiteStorageProvider implements StorageProvider {
         return CompletableFuture.supplyAsync(() -> {
             Map<String, Group> groups = new HashMap<>();
             try {
-                String sql = "SELECT name FROM groups";
+                String sql = "SELECT * FROM groups";
                 try (Statement stmt = connection.createStatement();
                      ResultSet rs = stmt.executeQuery(sql)) {
                     while (rs.next()) {
                         String name = rs.getString("name");
-                        loadGroup(name).join().ifPresent(group -> groups.put(name, group));
+                        Group group = new Group(name, rs.getInt("weight"));
+                        group.setDisplayName(rs.getString("display_name"));
+                        group.setPrefix(rs.getString("prefix"));
+                        group.setSuffix(rs.getString("suffix"));
+                        group.setPrefixPriority(rs.getInt("prefix_priority"));
+                        group.setSuffixPriority(rs.getInt("suffix_priority"));
+                        loadGroupNodes(group);
+                        groups.put(name, group);
                     }
                 }
             } catch (SQLException e) {
@@ -646,12 +672,14 @@ public final class SQLiteStorageProvider implements StorageProvider {
         return CompletableFuture.supplyAsync(() -> {
             Map<String, Track> tracks = new HashMap<>();
             try {
-                String sql = "SELECT name FROM tracks";
+                String sql = "SELECT * FROM tracks";
                 try (Statement stmt = connection.createStatement();
                      ResultSet rs = stmt.executeQuery(sql)) {
                     while (rs.next()) {
                         String name = rs.getString("name");
-                        loadTrack(name).join().ifPresent(track -> tracks.put(name, track));
+                        String groupsJson = rs.getString("groups_json");
+                        List<String> groups = parseGroupsList(groupsJson);
+                        tracks.put(name, new Track(name, groups));
                     }
                 }
             } catch (SQLException e) {
@@ -817,5 +845,49 @@ public final class SQLiteStorageProvider implements StorageProvider {
         }
         sb.append("]");
         return sb.toString();
+    }
+
+    private String serializeContexts(ContextSet contexts) {
+        if (contexts == null || contexts.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder sb = new StringBuilder("[");
+        boolean first = true;
+        for (Context ctx : contexts) {
+            if (!first) sb.append(",");
+            sb.append("\"").append(ctx.key()).append("=").append(ctx.value()).append("\"");
+            first = false;
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    private ContextSet deserializeContexts(String json) {
+        if (json == null || json.equals("[]") || json.isBlank()) {
+            return ContextSet.empty();
+        }
+        // Parse JSON array of "key=value" strings
+        String content = json.trim();
+        if (content.startsWith("[") && content.endsWith("]")) {
+            content = content.substring(1, content.length() - 1).trim();
+        }
+        if (content.isEmpty()) {
+            return ContextSet.empty();
+        }
+        ContextSet.Builder builder = ContextSet.builder();
+        for (String item : content.split(",")) {
+            String trimmed = item.trim();
+            if (trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+                trimmed = trimmed.substring(1, trimmed.length() - 1);
+            }
+            if (trimmed.contains("=")) {
+                try {
+                    builder.add(Context.parse(trimmed));
+                } catch (IllegalArgumentException e) {
+                    Logger.warn("Skipping invalid context entry: " + trimmed);
+                }
+            }
+        }
+        return builder.build();
     }
 }

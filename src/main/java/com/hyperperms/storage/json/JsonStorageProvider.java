@@ -410,6 +410,8 @@ public final class JsonStorageProvider implements StorageProvider {
                 Files.createDirectories(backupGroupsDir);
                 Files.createDirectories(backupTracksDir);
 
+                java.util.concurrent.atomic.AtomicInteger failures = new java.util.concurrent.atomic.AtomicInteger(0);
+
                 // Copy all user files
                 if (Files.exists(usersDirectory)) {
                     try (var stream = Files.list(usersDirectory)) {
@@ -419,6 +421,7 @@ public final class JsonStorageProvider implements StorageProvider {
                                       Files.copy(file, backupUsersDir.resolve(file.getFileName()),
                                                  StandardCopyOption.REPLACE_EXISTING);
                                   } catch (IOException e) {
+                                      failures.incrementAndGet();
                                       Logger.warn("Failed to backup user file: " + file.getFileName());
                                   }
                               });
@@ -434,6 +437,7 @@ public final class JsonStorageProvider implements StorageProvider {
                                       Files.copy(file, backupGroupsDir.resolve(file.getFileName()),
                                                  StandardCopyOption.REPLACE_EXISTING);
                                   } catch (IOException e) {
+                                      failures.incrementAndGet();
                                       Logger.warn("Failed to backup group file: " + file.getFileName());
                                   }
                               });
@@ -449,10 +453,15 @@ public final class JsonStorageProvider implements StorageProvider {
                                       Files.copy(file, backupTracksDir.resolve(file.getFileName()),
                                                  StandardCopyOption.REPLACE_EXISTING);
                                   } catch (IOException e) {
+                                      failures.incrementAndGet();
                                       Logger.warn("Failed to backup track file: " + file.getFileName());
                                   }
                               });
                     }
+                }
+
+                if (failures.get() > 0) {
+                    throw new RuntimeException("Backup incomplete: " + failures.get() + " file(s) failed to copy");
                 }
 
                 Logger.info("Backup created: " + backupName);
@@ -654,6 +663,9 @@ public final class JsonStorageProvider implements StorageProvider {
         public Node deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
                 throws JsonParseException {
             JsonObject obj = json.getAsJsonObject();
+            if (!obj.has("permission") || obj.get("permission").isJsonNull()) {
+                throw new JsonParseException("Node is missing required 'permission' field");
+            }
             String permission = obj.get("permission").getAsString();
             boolean value = obj.has("value") ? obj.get("value").getAsBoolean() : true;
             Instant expiry = obj.has("expiry") ? context.deserialize(obj.get("expiry"), Instant.class) : null;
@@ -690,6 +702,9 @@ public final class JsonStorageProvider implements StorageProvider {
         public User deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
                 throws JsonParseException {
             JsonObject obj = json.getAsJsonObject();
+            if (!obj.has("uuid") || obj.get("uuid").isJsonNull()) {
+                throw new JsonParseException("User is missing required 'uuid' field");
+            }
             UUID uuid = UUID.fromString(obj.get("uuid").getAsString());
             String username = obj.has("username") ? obj.get("username").getAsString() : null;
             User user = new User(uuid, username);

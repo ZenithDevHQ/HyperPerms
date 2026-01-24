@@ -3,14 +3,13 @@ package com.hyperperms.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import com.hyperperms.util.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 
 /**
  * Main configuration wrapper for HyperPerms.
@@ -38,9 +37,13 @@ public final class HyperPermsConfig {
             String json = Files.readString(configFile);
             config = GSON.fromJson(json, JsonObject.class);
             if (config == null) {
+                Logger.warn("Configuration file was empty, using defaults");
                 config = createDefaultConfig();
             }
             Logger.info("Configuration loaded");
+        } catch (JsonSyntaxException e) {
+            Logger.severe("Configuration file is corrupted (invalid JSON), using defaults", e);
+            config = createDefaultConfig();
         } catch (IOException e) {
             Logger.severe("Failed to load configuration", e);
             config = createDefaultConfig();

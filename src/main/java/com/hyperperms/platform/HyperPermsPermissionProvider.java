@@ -5,6 +5,7 @@ import com.hyperperms.api.context.ContextSet;
 import com.hyperperms.model.Group;
 import com.hyperperms.model.Node;
 import com.hyperperms.model.User;
+import com.hyperperms.registry.PermissionAliases;
 import com.hyperperms.resolver.PermissionResolver;
 import com.hyperperms.util.CaseInsensitiveSet;
 import com.hyperperms.util.Logger;
@@ -163,12 +164,30 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
             }
         }
 
-        // Expand any wildcards in user's direct permissions
+        // Expand aliases AND wildcards in user's direct permissions
+        // Must match the expansion logic in PermissionResolver.getExpandedPermissions()
         Set<String> expanded = new HashSet<>(directPermissions);
+        PermissionAliases aliases = PermissionAliases.getInstance();
+
         for (String perm : directPermissions) {
+            // Expand aliases for this permission (simplified -> actual Hytale paths)
+            Set<String> aliasExpanded = aliases.expand(perm);
+            expanded.addAll(aliasExpanded);
+
+            // Check if this is a wildcard permission
             if (perm.endsWith(".*") || perm.equals("*")) {
+                // Expand the wildcard using the registry
                 Set<String> matching = hyperPerms.getPermissionRegistry().getMatchingPermissions(perm);
                 expanded.addAll(matching);
+
+                // Also expand aliases for wildcard patterns
+                Set<String> wildcardAliases = aliases.getActualPermissions(perm);
+                for (String aliasedPerm : wildcardAliases) {
+                    expanded.add(aliasedPerm);
+                    if (aliasedPerm.endsWith(".*")) {
+                        expanded.addAll(hyperPerms.getPermissionRegistry().getMatchingPermissions(aliasedPerm));
+                    }
+                }
             }
         }
 

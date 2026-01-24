@@ -47,12 +47,14 @@ public final class TrackManagerImpl implements TrackManager {
     @NotNull
     public Track createTrack(@NotNull String name) {
         String lowerName = name.toLowerCase();
-        if (loadedTracks.containsKey(lowerName)) {
+        Track track = new Track(lowerName);
+
+        // putIfAbsent is atomic - prevents concurrent duplicate creation
+        Track existing = loadedTracks.putIfAbsent(lowerName, track);
+        if (existing != null) {
             throw new IllegalArgumentException("Track already exists: " + name);
         }
 
-        Track track = new Track(lowerName);
-        loadedTracks.put(lowerName, track);
         storage.saveTrack(track);
         Logger.info("Created track: " + name);
         return track;

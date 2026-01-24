@@ -54,24 +54,197 @@ public final class PermissionAliases {
 
     /**
      * Registers all permission aliases.
+     * <p>
+     * These mappings translate between:
+     * - Web UI friendly permissions (e.g., hytale.command.player.gamemode)
+     * - Actual Hytale permission nodes (e.g., hytale.command.gamemode.self, hytale.command.gamemode.other)
+     * <p>
+     * Hytale uses a pattern of .self and .other variants for player-targeted commands.
      */
     private void registerAllAliases() {
+        // ==================== CORE: Actual Hytale Permissions (.self/.other pattern) ====================
+        // These are the ACTUAL permission nodes Hytale checks (discovered via decompilation)
+
+        // Gamemode - Web UI → Actual Hytale
+        alias("hytale.command.player.gamemode", "hytale.command.gamemode.self", "hytale.command.gamemode.other");
+        alias("hytale.command.gamemode", "hytale.command.gamemode.self", "hytale.command.gamemode.other");
+        alias("hytale.command.gamemode.self", "hytale.command.gamemode.self");
+        alias("hytale.command.gamemode.other", "hytale.command.gamemode.other");
+        // Specific gamemode variants
+        alias("hytale.command.gamemode.survival", "hytale.command.gamemode.self", "hytale.command.gamemode.other");
+        alias("hytale.command.gamemode.creative", "hytale.command.gamemode.self", "hytale.command.gamemode.other");
+        alias("hytale.command.gamemode.adventure", "hytale.command.gamemode.self", "hytale.command.gamemode.other");
+        alias("hytale.command.gamemode.spectator", "hytale.command.gamemode.self", "hytale.command.gamemode.other");
+
+        // Kill - Web UI → Actual Hytale
+        alias("hytale.command.player.kill", "hytale.command.kill.self", "hytale.command.kill.other");
+        alias("hytale.command.kill", "hytale.command.kill.self", "hytale.command.kill.other");
+        alias("hytale.command.kill.self", "hytale.command.kill.self");
+        alias("hytale.command.kill.other", "hytale.command.kill.other");
+
+        // Give - Web UI → Actual Hytale
+        alias("hytale.command.player.inventory.give", "hytale.command.give.self", "hytale.command.give.other");
+        alias("hytale.command.give", "hytale.command.give.self", "hytale.command.give.other");
+        alias("hytale.command.give.self", "hytale.command.give.self");
+        alias("hytale.command.give.other", "hytale.command.give.other");
+
+        // Damage - Web UI → Actual Hytale
+        alias("hytale.command.player.damage", "hytale.command.damage.self", "hytale.command.damage.other");
+        alias("hytale.command.damage", "hytale.command.damage.self", "hytale.command.damage.other");
+        alias("hytale.command.damage.self", "hytale.command.damage.self");
+        alias("hytale.command.damage.other", "hytale.command.damage.other");
+
+        // Spawn (teleport to spawn) - Web UI → Actual Hytale
+        alias("hytale.command.world.spawnblock", "hytale.command.spawn.self", "hytale.command.spawn.other");
+        alias("hytale.command.spawn", "hytale.command.spawn.self", "hytale.command.spawn.other");
+        alias("hytale.command.spawn.self", "hytale.command.spawn.self");
+        alias("hytale.command.spawn.other", "hytale.command.spawn.other");
+        alias("hytale.command.spawn.teleport", "hytale.command.spawn.self", "hytale.command.spawn.other");
+        alias("hytale.command.spawn.set", "hytale.command.spawn.self", "hytale.command.spawn.other");
+
+        // Whereami - Web UI → Actual Hytale
+        alias("hytale.command.player.whereami", "hytale.command.whereami.self", "hytale.command.whereami.other");
+        alias("hytale.command.whereami", "hytale.command.whereami.self", "hytale.command.whereami.other");
+        alias("hytale.command.whereami.self", "hytale.command.whereami.self");
+        alias("hytale.command.whereami.other", "hytale.command.whereami.other");
+
+        // Refer - Web UI → Actual Hytale
+        alias("hytale.command.player.refer", "hytale.command.refer.self", "hytale.command.refer.other");
+        alias("hytale.command.refer", "hytale.command.refer.self", "hytale.command.refer.other");
+        alias("hytale.command.refer.self", "hytale.command.refer.self");
+        alias("hytale.command.refer.other", "hytale.command.refer.other");
+
+        // ==================== Effect Commands (.self/.other pattern) ====================
+        // Apply effect
+        alias("hytale.command.player.effect.apply", "hytale.command.player.effect.apply.self", "hytale.command.player.effect.apply.other");
+        alias("hytale.command.effect.apply", "hytale.command.player.effect.apply.self", "hytale.command.player.effect.apply.other");
+        alias("hytale.command.player.effect.apply.self", "hytale.command.player.effect.apply.self");
+        alias("hytale.command.player.effect.apply.other", "hytale.command.player.effect.apply.other");
+        // Clear effect
+        alias("hytale.command.player.effect.clear", "hytale.command.player.effect.clear.self", "hytale.command.player.effect.clear.other");
+        alias("hytale.command.effect.clear", "hytale.command.player.effect.clear.self", "hytale.command.player.effect.clear.other");
+        alias("hytale.command.player.effect.clear.self", "hytale.command.player.effect.clear.self");
+        alias("hytale.command.player.effect.clear.other", "hytale.command.player.effect.clear.other");
+        // Generic effect command
+        alias("hytale.command.player.effect",
+            "hytale.command.player.effect.apply.self", "hytale.command.player.effect.apply.other",
+            "hytale.command.player.effect.clear.self", "hytale.command.player.effect.clear.other");
+        alias("hytale.command.effect",
+            "hytale.command.player.effect.apply.self", "hytale.command.player.effect.apply.other",
+            "hytale.command.player.effect.clear.self", "hytale.command.player.effect.clear.other");
+        alias("hytale.command.heal", "hytale.command.player.effect.apply.self", "hytale.command.player.effect.apply.other");
+
+        // ==================== Teleport Commands (Complex Hierarchy) ====================
+        // Base teleport - Web UI → Actual Hytale
+        alias("hytale.command.player.teleport", "hytale.command.teleport.self", "hytale.command.teleport.other");
+        alias("hytale.command.tp", "hytale.command.teleport.self", "hytale.command.teleport.other");
+        alias("hytale.command.teleport", "hytale.command.teleport.self", "hytale.command.teleport.other");
+        alias("hytale.command.teleport.self", "hytale.command.teleport.self");
+        alias("hytale.command.teleport.other", "hytale.command.teleport.other");
+
+        // Teleport sub-commands (these are actual Hytale permissions, no .self/.other)
+        alias("hytale.command.player.teleport.all", "hytale.command.teleport.all");
+        alias("hytale.command.tpall", "hytale.command.teleport.all");
+        alias("hytale.command.teleport.all", "hytale.command.teleport.all");
+
+        alias("hytale.command.player.teleport.back", "hytale.command.teleport.back");
+        alias("hytale.command.tpback", "hytale.command.teleport.back");
+        alias("hytale.command.teleport.back", "hytale.command.teleport.back");
+
+        alias("hytale.command.player.teleport.forward", "hytale.command.teleport.forward");
+        alias("hytale.command.tpforward", "hytale.command.teleport.forward");
+        alias("hytale.command.teleport.forward", "hytale.command.teleport.forward");
+
+        alias("hytale.command.player.teleport.top", "hytale.command.teleport.top");
+        alias("hytale.command.tptop", "hytale.command.teleport.top");
+        alias("hytale.command.teleport.top", "hytale.command.teleport.top");
+
+        alias("hytale.command.player.teleport.home", "hytale.command.teleport.home");
+        alias("hytale.command.tphome", "hytale.command.teleport.home");
+        alias("hytale.command.teleport.home", "hytale.command.teleport.home");
+
+        alias("hytale.command.player.teleport.world", "hytale.command.teleport.world");
+        alias("hytale.command.teleport.world", "hytale.command.teleport.world");
+
+        alias("hytale.command.player.teleport.history", "hytale.command.teleport.history");
+        alias("hytale.command.teleport.history", "hytale.command.teleport.history");
+
+        // ==================== Warp Commands (Actual Hytale Permissions) ====================
+        alias("hytale.command.warp", "hytale.command.warp.go", "hytale.command.warp.list");
+        alias("hytale.command.warp.use", "hytale.command.warp.go");
+        alias("hytale.command.warp.go", "hytale.command.warp.go");
+        alias("hytale.command.warp.list", "hytale.command.warp.list");
+        alias("hytale.command.warp.set", "hytale.command.warp.set");
+        alias("hytale.command.warp.remove", "hytale.command.warp.remove");
+        alias("hytale.command.warp.reload", "hytale.command.warp.reload");
+        alias("hytale.command.warp.admin", "hytale.command.warp.set", "hytale.command.warp.remove", "hytale.command.warp.reload");
+        alias("hytale.command.world.warp", "hytale.command.warp.go", "hytale.command.warp.list");
+
+        // ==================== Inventory Commands ====================
+        // Invsee (view/modify other player inventories)
+        alias("hytale.command.player.inventory.see", "hytale.command.invsee", "hytale.command.invsee.modify");
+        alias("hytale.command.invsee", "hytale.command.invsee", "hytale.command.invsee.modify");
+        alias("hytale.command.invsee.view", "hytale.command.invsee");
+        alias("hytale.command.invsee.modify", "hytale.command.invsee.modify");
+
+        // Spawnitem (distinct from give)
+        alias("hytale.command.spawnitem", "hytale.command.spawnitem");
+        alias("hytale.command.player.inventory.spawnitem", "hytale.command.spawnitem");
+
+        // Clear inventory
+        alias("hytale.command.player.inventory.clear", "hytale.command.player.inventory.clear");
+        alias("hytale.command.clear", "hytale.command.player.inventory.clear");
+
+        // ==================== Op Commands (Actual Hytale Permissions) ====================
+        alias("hytale.command.op", "hytale.command.op.add", "hytale.command.op.remove");
+        alias("hytale.command.op.add", "hytale.command.op.add");
+        alias("hytale.command.op.remove", "hytale.command.op.remove");
+        alias("hytale.command.opadd", "hytale.command.op.add");
+        alias("hytale.command.opremove", "hytale.command.op.remove");
+
+        // ==================== Editor Permissions (Case Sensitivity Matters!) ====================
+        alias("hytale.editor.buildertools", "hytale.editor.builderTools");
+        alias("hytale.editor.asset", "hytale.editor.asset");
+        alias("hytale.editor.brush.use", "hytale.editor.brush.use");
+        alias("hytale.editor.brush.config", "hytale.editor.brush.config");
+        alias("hytale.editor.prefab.use", "hytale.editor.prefab.use");
+        alias("hytale.editor.prefab.manage", "hytale.editor.prefab.manage");
+        alias("hytale.editor.selection.use", "hytale.editor.selection.use");
+        alias("hytale.editor.selection.clipboard", "hytale.editor.selection.clipboard");
+        alias("hytale.editor.selection.modify", "hytale.editor.selection.modify");
+        alias("hytale.editor.history", "hytale.editor.history");
+        alias("hytale.editor.packs.create", "hytale.editor.packs.create");
+        alias("hytale.editor.packs.edit", "hytale.editor.packs.edit");
+        alias("hytale.editor.packs.delete", "hytale.editor.packs.delete");
+
+        // ==================== Camera Permissions ====================
+        alias("hytale.camera.flycam", "hytale.camera.flycam");
+        alias("hytale.command.player.camera", "hytale.camera.flycam");
+
+        // ==================== World Map Permissions ====================
+        alias("hytale.world_map.teleport.coordinate", "hytale.world_map.teleport.coordinate");
+        alias("hytale.world_map.teleport.marker", "hytale.world_map.teleport.marker");
+        alias("hytale.world_map.teleport", "hytale.world_map.teleport.coordinate", "hytale.world_map.teleport.marker");
+
+        // ==================== System Permissions ====================
+        alias("hytale.system.update.notify", "hytale.system.update.notify");
+
         // ==================== Legacy System Command Format ====================
-        // Format: hytale.system.command.* → hytale.command.* (used by some older configs)
-        alias("hytale.system.command.gamemode", "hytale.command.player.gamemode", "hytale.command.gamemode");
-        alias("hytale.system.command.give", "hytale.command.player.inventory.give", "hytale.command.give");
+        // Format: hytale.system.command.* → actual Hytale permissions (used by some older configs)
+        alias("hytale.system.command.gamemode", "hytale.command.gamemode.self", "hytale.command.gamemode.other");
+        alias("hytale.system.command.give", "hytale.command.give.self", "hytale.command.give.other");
         alias("hytale.system.command.kick", "hytale.command.server.kick", "hytale.command.kick");
         alias("hytale.system.command.ban", "hytale.command.server.ban", "hytale.command.ban");
         alias("hytale.system.command.unban", "hytale.command.server.unban", "hytale.command.unban");
-        alias("hytale.system.command.kill", "hytale.command.player.kill", "hytale.command.kill");
-        alias("hytale.system.command.heal", "hytale.command.player.effect.apply", "hytale.command.heal");
-        alias("hytale.system.command.tp", "hytale.command.player.teleport", "hytale.command.tp");
-        alias("hytale.system.command.teleport", "hytale.command.player.teleport", "hytale.command.teleport");
-        alias("hytale.system.command.spawn", "hytale.command.world.spawnblock", "hytale.command.spawn");
+        alias("hytale.system.command.kill", "hytale.command.kill.self", "hytale.command.kill.other");
+        alias("hytale.system.command.heal", "hytale.command.player.effect.apply.self", "hytale.command.player.effect.apply.other");
+        alias("hytale.system.command.tp", "hytale.command.teleport.self", "hytale.command.teleport.other");
+        alias("hytale.system.command.teleport", "hytale.command.teleport.self", "hytale.command.teleport.other");
+        alias("hytale.system.command.spawn", "hytale.command.spawn.self", "hytale.command.spawn.other");
         alias("hytale.system.command.stop", "hytale.command.server.stop", "hytale.command.stop");
-        alias("hytale.system.command.op", "hytale.command.op", "hytale.command.op");
-        alias("hytale.system.command.opadd", "hytale.command.op.add", "hytale.command.opadd");
-        alias("hytale.system.command.opremove", "hytale.command.op.remove", "hytale.command.opremove");
+        alias("hytale.system.command.op", "hytale.command.op.add", "hytale.command.op.remove");
+        alias("hytale.system.command.opadd", "hytale.command.op.add");
+        alias("hytale.system.command.opremove", "hytale.command.op.remove");
         alias("hytale.system.command.who", "hytale.command.server.who", "hytale.command.who");
         alias("hytale.system.command.help", "hytale.command.utility.help", "hytale.command.help");
         alias("hytale.system.command.version", "hytale.command.debug.version", "hytale.command.version");
@@ -79,69 +252,22 @@ public final class PermissionAliases {
         alias("hytale.system.command.time", "hytale.command.world.time", "hytale.command.time");
         alias("hytale.system.command.weather", "hytale.command.world.weather", "hytale.command.weather");
         alias("hytale.system.command.clear", "hytale.command.player.inventory.clear", "hytale.command.clear");
-        alias("hytale.system.command.effect", "hytale.command.player.effect.apply", "hytale.command.effect");
+        alias("hytale.system.command.effect", "hytale.command.player.effect.apply.self", "hytale.command.player.effect.apply.other");
         alias("hytale.system.command.emote", "hytale.command.emote");
         alias("hytale.system.command.plugin", "hytale.command.plugin");
         alias("hytale.system.command.backup", "hytale.command.utility.backup", "hytale.command.backup");
-
-        // ==================== Hytale Editor Permissions ====================
-        // Case sensitivity matters!
-        alias("hytale.editor.buildertools", "hytale.editor.builderTools");
-
-        // Additional editor permissions from JAR
-        alias("hytale.editor.asset", "hytale.editor.asset");
-        alias("hytale.editor.packs.create", "hytale.editor.packs.create");
-        alias("hytale.editor.packs.edit", "hytale.editor.packs.edit");
-        alias("hytale.editor.packs.delete", "hytale.editor.packs.delete");
-        alias("hytale.editor.brush.config", "hytale.editor.brush.config");
-        alias("hytale.editor.prefab.manage", "hytale.editor.prefab.manage");
-        alias("hytale.editor.selection.modify", "hytale.editor.selection.modify");
-
-        // ==================== Player Commands ====================
-        // gamemode
-        alias("hytale.command.gamemode", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.self", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.others", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.survival", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.creative", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.adventure", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.spectator", "hytale.command.player.gamemode");
-
-        // give / inventory
-        alias("hytale.command.give", "hytale.command.player.inventory.give");
-        alias("hytale.command.give.self", "hytale.command.player.inventory.give");
-        alias("hytale.command.give.others", "hytale.command.player.inventory.give");
-        alias("hytale.command.clear", "hytale.command.player.inventory.clear");
-
-        // kill / damage
-        alias("hytale.command.kill", "hytale.command.player.kill");
-        alias("hytale.command.damage", "hytale.command.player.damage");
-        alias("hytale.command.heal", "hytale.command.player.effect.apply");
-
-        // hide
-        alias("hytale.command.hide", "hytale.command.player.hide");
 
         // ==================== Server Commands ====================
         alias("hytale.command.kick", "hytale.command.server.kick");
         alias("hytale.command.stop", "hytale.command.server.stop");
         alias("hytale.command.who", "hytale.command.server.who");
         alias("hytale.command.maxplayers", "hytale.command.server.maxplayers");
+        alias("hytale.command.ban", "hytale.command.server.ban");
+        alias("hytale.command.unban", "hytale.command.server.unban");
 
         // ==================== Utility Commands ====================
         alias("hytale.command.backup", "hytale.command.utility.backup");
         alias("hytale.command.help", "hytale.command.utility.help");
-
-        // ==================== World Commands ====================
-        alias("hytale.command.spawn", "hytale.command.world.spawnblock");
-        alias("hytale.command.spawn.teleport", "hytale.command.world.spawnblock");
-        alias("hytale.command.spawn.set", "hytale.command.world.spawnblock");
-
-        // ==================== Permissions Commands ====================
-        alias("hytale.command.op", "hytale.command.op");
-        alias("hytale.command.op.self", "hytale.command.op.self");
-        alias("hytale.command.op.add", "hytale.command.op.add");
-        alias("hytale.command.op.remove", "hytale.command.op.remove");
-        alias("hytale.command.perm", "hytale.command.perm");
 
         // ==================== Plugin Commands ====================
         alias("hytale.command.plugin", "hytale.command.plugin");
@@ -149,6 +275,7 @@ public final class PermissionAliases {
         alias("hytale.command.plugin.load", "hytale.command.plugin.load");
         alias("hytale.command.plugin.unload", "hytale.command.plugin.unload");
         alias("hytale.command.plugin.reload", "hytale.command.plugin.reload");
+        alias("hytale.command.perm", "hytale.command.perm");
 
         // ==================== Debug Commands ====================
         alias("hytale.command.version", "hytale.command.debug.version");
@@ -156,53 +283,106 @@ public final class PermissionAliases {
 
         // ==================== Other Commands ====================
         alias("hytale.command.emote", "hytale.command.emote");
-        alias("hytale.command.whereami", "hytale.command.player.whereami");
         alias("hytale.command.whoami", "hytale.command.player.whoami");
+        alias("hytale.command.hide", "hytale.command.player.hide");
 
         // ==================== Wildcard Mappings ====================
-        // These ensure that wildcards expand to include all relevant permissions
+        // These ensure that wildcards expand to include all relevant ACTUAL Hytale permissions
         aliasWildcard("hytale.command.gamemode.*",
-            "hytale.command.player.gamemode");
+            "hytale.command.gamemode.self",
+            "hytale.command.gamemode.other");
         aliasWildcard("hytale.command.give.*",
-            "hytale.command.player.inventory.give",
-            "hytale.command.player.inventory.givearmor");
+            "hytale.command.give.self",
+            "hytale.command.give.other");
+        aliasWildcard("hytale.command.kill.*",
+            "hytale.command.kill.self",
+            "hytale.command.kill.other");
+        aliasWildcard("hytale.command.damage.*",
+            "hytale.command.damage.self",
+            "hytale.command.damage.other");
+        aliasWildcard("hytale.command.spawn.*",
+            "hytale.command.spawn.self",
+            "hytale.command.spawn.other");
+        aliasWildcard("hytale.command.whereami.*",
+            "hytale.command.whereami.self",
+            "hytale.command.whereami.other");
+        aliasWildcard("hytale.command.refer.*",
+            "hytale.command.refer.self",
+            "hytale.command.refer.other");
+        aliasWildcard("hytale.command.teleport.*",
+            "hytale.command.teleport.self",
+            "hytale.command.teleport.other",
+            "hytale.command.teleport.all",
+            "hytale.command.teleport.back",
+            "hytale.command.teleport.forward",
+            "hytale.command.teleport.top",
+            "hytale.command.teleport.home",
+            "hytale.command.teleport.world",
+            "hytale.command.teleport.history");
+        aliasWildcard("hytale.command.warp.*",
+            "hytale.command.warp.go",
+            "hytale.command.warp.set",
+            "hytale.command.warp.remove",
+            "hytale.command.warp.list",
+            "hytale.command.warp.reload");
+        aliasWildcard("hytale.command.op.*",
+            "hytale.command.op.add",
+            "hytale.command.op.remove");
+        aliasWildcard("hytale.command.invsee.*",
+            "hytale.command.invsee",
+            "hytale.command.invsee.modify");
         aliasWildcard("hytale.command.inventory.*",
-            "hytale.command.player.inventory",
-            "hytale.command.player.inventory.give",
-            "hytale.command.player.inventory.givearmor",
+            "hytale.command.give.self",
+            "hytale.command.give.other",
+            "hytale.command.invsee",
+            "hytale.command.invsee.modify",
+            "hytale.command.spawnitem",
             "hytale.command.player.inventory.clear",
             "hytale.command.player.inventory.backpack",
             "hytale.command.player.inventory.item",
-            "hytale.command.player.inventory.see",
             "hytale.command.player.inventory.itemstate");
+        aliasWildcard("hytale.command.effect.*",
+            "hytale.command.player.effect.apply.self",
+            "hytale.command.player.effect.apply.other",
+            "hytale.command.player.effect.clear.self",
+            "hytale.command.player.effect.clear.other");
         aliasWildcard("hytale.command.player.*",
-            "hytale.command.player",
-            "hytale.command.player.gamemode",
-            "hytale.command.player.damage",
-            "hytale.command.player.kill",
+            // Actual Hytale .self/.other permissions
+            "hytale.command.gamemode.self",
+            "hytale.command.gamemode.other",
+            "hytale.command.kill.self",
+            "hytale.command.kill.other",
+            "hytale.command.give.self",
+            "hytale.command.give.other",
+            "hytale.command.damage.self",
+            "hytale.command.damage.other",
+            "hytale.command.spawn.self",
+            "hytale.command.spawn.other",
+            "hytale.command.whereami.self",
+            "hytale.command.whereami.other",
+            "hytale.command.refer.self",
+            "hytale.command.refer.other",
+            "hytale.command.teleport.self",
+            "hytale.command.teleport.other",
+            "hytale.command.player.effect.apply.self",
+            "hytale.command.player.effect.apply.other",
+            "hytale.command.player.effect.clear.self",
+            "hytale.command.player.effect.clear.other",
+            // Other player commands
             "hytale.command.player.hide",
             "hytale.command.player.reset",
             "hytale.command.player.respawn",
             "hytale.command.player.zone",
-            "hytale.command.player.refer",
             "hytale.command.player.sudo",
-            "hytale.command.player.whereami",
             "hytale.command.player.whoami",
             "hytale.command.player.toggleblockplacementoverride",
-            "hytale.command.player.camera",
-            "hytale.command.player.camera.reset",
-            "hytale.command.player.camera.sidescroller",
-            "hytale.command.player.camera.topdown",
-            "hytale.command.player.effect",
-            "hytale.command.player.effect.apply",
-            "hytale.command.player.effect.clear",
-            "hytale.command.player.inventory",
-            "hytale.command.player.inventory.give",
-            "hytale.command.player.inventory.givearmor",
+            "hytale.camera.flycam",
+            "hytale.command.invsee",
+            "hytale.command.invsee.modify",
+            "hytale.command.spawnitem",
             "hytale.command.player.inventory.clear",
             "hytale.command.player.inventory.backpack",
             "hytale.command.player.inventory.item",
-            "hytale.command.player.inventory.see",
             "hytale.command.player.inventory.itemstate",
             "hytale.command.player.stats",
             "hytale.command.player.stats.add",
@@ -325,6 +505,7 @@ public final class PermissionAliases {
             "hytale.command.debug.component.repulsion.add",
             "hytale.command.debug.component.repulsion.remove");
         aliasWildcard("hytale.editor.*",
+            // Note: builderTools uses camelCase (actual Hytale permission)
             "hytale.editor.asset",
             "hytale.editor.builderTools",
             "hytale.editor.history",
@@ -338,15 +519,13 @@ public final class PermissionAliases {
             "hytale.editor.packs.create",
             "hytale.editor.packs.edit",
             "hytale.editor.packs.delete");
+        aliasWildcard("hytale.camera.*",
+            "hytale.camera.flycam");
+        aliasWildcard("hytale.world_map.*",
+            "hytale.world_map.teleport.coordinate",
+            "hytale.world_map.teleport.marker");
 
-        // ==================== Additional Web Editor Permissions ====================
-        // Moderation commands
-        alias("hytale.command.ban", "hytale.command.server.ban");
-        alias("hytale.command.unban", "hytale.command.server.unban");
-        alias("hytale.command.opadd", "hytale.command.op.add");
-        alias("hytale.command.opremove", "hytale.command.op.remove");
-        alias("hytale.command.opself", "hytale.command.op.self");
-
+        // ==================== Additional Convenience Aliases ====================
         // Whitelist commands
         alias("hytale.command.whitelist", "hytale.command.server.whitelist");
         alias("hytale.command.whitelist.add", "hytale.command.server.whitelist.add");
@@ -355,15 +534,8 @@ public final class PermissionAliases {
         alias("hytale.command.whitelist.on", "hytale.command.server.whitelist.on");
         alias("hytale.command.whitelist.off", "hytale.command.server.whitelist.off");
 
-        // Teleportation commands
-        alias("hytale.command.tp", "hytale.command.player.teleport");
-        alias("hytale.command.teleport", "hytale.command.player.teleport");
-        alias("hytale.command.tpall", "hytale.command.player.teleport.all");
-        alias("hytale.command.tpback", "hytale.command.player.teleport.back");
-        alias("hytale.command.tpforward", "hytale.command.player.teleport.forward");
-        alias("hytale.command.tptop", "hytale.command.player.teleport.top");
-        alias("hytale.command.tphome", "hytale.command.player.teleport.home");
-        alias("hytale.command.spawnset", "hytale.command.world.spawnblock");
+        // Spawn set command (distinct from spawn teleport)
+        alias("hytale.command.spawnset", "hytale.command.spawn.self", "hytale.command.spawn.other");
 
         // Building/Editor commands (simplified -> actual)
         alias("hytale.command.fill", "hytale.editor.selection.fill");
@@ -393,7 +565,6 @@ public final class PermissionAliases {
         // World commands
         alias("hytale.command.worldgen", "hytale.command.world.worldgen");
         alias("hytale.command.chunk", "hytale.command.world.chunk");
-        alias("hytale.command.warp", "hytale.command.world.warp");
         alias("hytale.command.time", "hytale.command.world.time");
         alias("hytale.command.time.set", "hytale.command.world.time.set");
         alias("hytale.command.time.get", "hytale.command.world.time.get");
@@ -415,11 +586,19 @@ public final class PermissionAliases {
         alias("hytale.command.network", "hytale.command.utility.net.network");
         alias("hytale.command.stresstest", "hytale.command.debug.stresstest");
 
-        // Player state commands
-        alias("hytale.command.player", "hytale.command.player");
-        alias("hytale.command.inventory", "hytale.command.player.inventory");
+        // Player state commands (using actual Hytale permissions)
+        alias("hytale.command.player",
+            "hytale.command.gamemode.self", "hytale.command.gamemode.other",
+            "hytale.command.kill.self", "hytale.command.kill.other",
+            "hytale.command.damage.self", "hytale.command.damage.other",
+            "hytale.command.give.self", "hytale.command.give.other",
+            "hytale.command.teleport.self", "hytale.command.teleport.other");
+        alias("hytale.command.inventory",
+            "hytale.command.give.self", "hytale.command.give.other",
+            "hytale.command.invsee", "hytale.command.invsee.modify",
+            "hytale.command.spawnitem",
+            "hytale.command.player.inventory.clear");
         alias("hytale.command.sleep", "hytale.command.utility.sleep");
-        alias("hytale.command.effect", "hytale.command.player.effect");
         alias("hytale.command.stats", "hytale.command.player.stats");
 
         // Instance/Auth commands

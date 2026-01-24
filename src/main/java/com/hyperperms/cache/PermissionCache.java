@@ -92,12 +92,15 @@ public final class PermissionCache {
      */
     public void invalidate(@NotNull UUID uuid) {
         // Unfortunately Caffeine doesn't support partial key invalidation efficiently,
-        // so we iterate and remove matching entries
-        long before = cache.estimatedSize();
-        cache.asMap().keySet().removeIf(key -> key.uuid.equals(uuid));
-        long removed = before - cache.estimatedSize();
-        if (removed > 0) {
-            statistics.recordInvalidations(removed);
+        // so we collect matching keys first, then invalidate them
+        var keysToInvalidate = cache.asMap().keySet().stream()
+                .filter(key -> key.uuid.equals(uuid))
+                .toList();
+
+        keysToInvalidate.forEach(cache::invalidate);
+
+        if (!keysToInvalidate.isEmpty()) {
+            statistics.recordInvalidations(keysToInvalidate.size());
         }
     }
 

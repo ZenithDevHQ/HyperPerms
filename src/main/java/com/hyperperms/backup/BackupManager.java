@@ -333,19 +333,21 @@ public class BackupManager {
      */
     private BackupInfo parseBackupInfo(String name) {
         BackupType type = BackupType.MANUAL;
+        String datePart = name;
         if (name.startsWith("auto-")) {
             type = BackupType.AUTOMATIC;
+            datePart = name.substring("auto-".length());
         } else if (name.startsWith("save-")) {
             type = BackupType.ON_SAVE;
+            datePart = name.substring("save-".length());
+        } else if (name.startsWith("manual-")) {
+            datePart = name.substring("manual-".length());
+        } else if (name.startsWith("pre-restore-")) {
+            datePart = name.substring("pre-restore-".length());
         }
-        
-        // Try to parse timestamp from name
+
+        // Try to parse timestamp from the date portion
         long timestamp = 0;
-        String datePart = name;
-        if (datePart.contains("-")) {
-            int idx = datePart.indexOf('-');
-            datePart = datePart.substring(idx + 1);
-        }
         try {
             Instant instant = BACKUP_NAME_FORMAT.parse(datePart, Instant::from);
             timestamp = instant.toEpochMilli();
@@ -353,7 +355,7 @@ public class BackupManager {
             // Use current time if parsing fails
             timestamp = System.currentTimeMillis();
         }
-        
+
         return new BackupInfo(name, type, timestamp);
     }
     

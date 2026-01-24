@@ -3,6 +3,7 @@ package com.hyperperms.resolver;
 import com.hyperperms.api.context.ContextSet;
 import com.hyperperms.registry.PermissionAliases;
 import com.hyperperms.registry.PermissionRegistry;
+import com.hyperperms.util.Logger;
 import com.hyperperms.model.Group;
 import com.hyperperms.model.Node;
 import com.hyperperms.model.User;
@@ -369,6 +370,10 @@ public final class PermissionResolver {
             for (String perm : granted) {
                 // Expand aliases for this permission (simplified -> actual Hytale paths)
                 Set<String> aliasExpanded = aliases.expand(perm);
+                // Debug: Log alias expansion for gamemode-related permissions
+                if (perm.toLowerCase().contains("gamemode")) {
+                    Logger.debug("getExpandedPermissions: '%s' -> aliases: %s", perm, aliasExpanded);
+                }
                 expanded.addAll(aliasExpanded);
 
                 // Check if this is a wildcard permission
@@ -388,6 +393,12 @@ public final class PermissionResolver {
                         }
                     }
                 }
+            }
+
+            // Debug: Check if the actual Hytale permission is present
+            if (expanded.stream().anyMatch(p -> p.toLowerCase().contains("gamemode"))) {
+                boolean hasActual = expanded.contains("hytale.command.player.gamemode");
+                Logger.debug("getExpandedPermissions: hytale.command.player.gamemode in result: %s", hasActual);
             }
 
             return Collections.unmodifiableSet(expanded);
