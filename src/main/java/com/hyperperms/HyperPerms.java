@@ -46,7 +46,7 @@ import java.util.logging.Level;
  */
 public final class HyperPerms implements HyperPermsAPI {
 
-    public static final String VERSION = "2.3.5";
+    public static final String VERSION = "2.4.1";
     
     private static HyperPerms instance;
 
