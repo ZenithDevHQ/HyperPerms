@@ -32,17 +32,28 @@ public final class UserManagerImpl implements UserManager {
 
     @Override
     public CompletableFuture<Optional<User>> loadUser(@NotNull UUID uuid) {
+        // Check cache first - if already loaded, return immediately
         User cached = loadedUsers.get(uuid);
         if (cached != null) {
             return CompletableFuture.completedFuture(Optional.of(cached));
         }
 
         return storage.loadUser(uuid).thenApply(opt -> {
-            opt.ifPresent(user -> {
-                loadedUsers.put(uuid, user);
-                // Invalidate any stale cached permissions
+            if (opt.isPresent()) {
+                // Use compute to handle race condition with getOrCreateUser
+                User loaded = opt.get();
+                loadedUsers.compute(uuid, (key, existing) -> {
+                    // Only use loaded user if no user was created in the meantime,
+                    // OR if the existing user has default group (was just created)
+                    if (existing == null || existing.getPrimaryGroup().equals(defaultGroup)) {
+                        return loaded;
+                    }
+                    // Keep existing user if it has non-default data (was modified)
+                    return existing;
+                });
                 cache.invalidate(uuid);
-            });
+                return Optional.of(loadedUsers.get(uuid));
+            }
             return opt;
         });
     }

@@ -858,7 +858,7 @@ public class HyperPermsCommand extends AbstractCommand {
 
             Node node = Node.builder(permission).value(value).build();
             user.setNode(node);
-            hyperPerms.getUserManager().saveUser(user);
+            hyperPerms.getUserManager().saveUser(user).join();
 
             // Invalidate cache for this user
             hyperPerms.getCache().invalidate(user.getUuid());
@@ -893,7 +893,7 @@ public class HyperPermsCommand extends AbstractCommand {
 
             var result = user.removeNode(permission);
             if (result == com.hyperperms.api.PermissionHolder.DataMutateResult.SUCCESS) {
-                hyperPerms.getUserManager().saveUser(user);
+                hyperPerms.getUserManager().saveUser(user).join();
                 hyperPerms.getCache().invalidate(user.getUuid());
                 ctx.sender().sendMessage(Message.raw("Removed " + permission + " from user " + user.getFriendlyName()));
             } else {
@@ -936,7 +936,7 @@ public class HyperPermsCommand extends AbstractCommand {
 
             var result = user.addGroup(groupName);
             if (result == com.hyperperms.api.PermissionHolder.DataMutateResult.SUCCESS) {
-                hyperPerms.getUserManager().saveUser(user);
+                hyperPerms.getUserManager().saveUser(user).join();
                 hyperPerms.getCache().invalidate(user.getUuid());
                 ctx.sender().sendMessage(Message.raw("Added user " + user.getFriendlyName() + " to group " + groupName));
             } else {
@@ -971,7 +971,7 @@ public class HyperPermsCommand extends AbstractCommand {
 
             var result = user.removeGroup(groupName);
             if (result == com.hyperperms.api.PermissionHolder.DataMutateResult.SUCCESS) {
-                hyperPerms.getUserManager().saveUser(user);
+                hyperPerms.getUserManager().saveUser(user).join();
                 hyperPerms.getCache().invalidate(user.getUuid());
                 ctx.sender().sendMessage(Message.raw("Removed user " + user.getFriendlyName() + " from group " + groupName));
             } else {
@@ -1019,7 +1019,7 @@ public class HyperPermsCommand extends AbstractCommand {
             }
 
             user.setPrimaryGroup(groupName.toLowerCase());
-            hyperPerms.getUserManager().saveUser(user);
+            hyperPerms.getUserManager().saveUser(user).join();
             hyperPerms.getCache().invalidate(user.getUuid());
 
             ctx.sender().sendMessage(Message.raw("Set primary group of " + user.getFriendlyName() + " to " + groupName));
@@ -1059,7 +1059,7 @@ public class HyperPermsCommand extends AbstractCommand {
                 ctx.sender().sendMessage(Message.raw("Set custom prefix of " + user.getFriendlyName() + " to \"" + prefix + "\""));
             }
 
-            hyperPerms.getUserManager().saveUser(user);
+            hyperPerms.getUserManager().saveUser(user).join();
             hyperPerms.getCache().invalidate(user.getUuid());
 
             return CompletableFuture.completedFuture(null);
@@ -1097,7 +1097,7 @@ public class HyperPermsCommand extends AbstractCommand {
                 ctx.sender().sendMessage(Message.raw("Set custom suffix of " + user.getFriendlyName() + " to \"" + suffix + "\""));
             }
 
-            hyperPerms.getUserManager().saveUser(user);
+            hyperPerms.getUserManager().saveUser(user).join();
             hyperPerms.getCache().invalidate(user.getUuid());
 
             return CompletableFuture.completedFuture(null);
@@ -1135,7 +1135,7 @@ public class HyperPermsCommand extends AbstractCommand {
             user.setCustomPrefix(null);
             user.setCustomSuffix(null);
 
-            hyperPerms.getUserManager().saveUser(user);
+            hyperPerms.getUserManager().saveUser(user).join();
             hyperPerms.getCache().invalidate(user.getUuid());
 
             ctx.sender().sendMessage(Message.raw("Cleared all data for " + user.getFriendlyName()));

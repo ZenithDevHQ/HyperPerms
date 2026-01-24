@@ -175,6 +175,7 @@ public final class HyperPerms implements HyperPermsAPI {
             // Load data
             groupManager.loadAll().join();
             trackManager.loadAll().join();
+            userManager.loadAll().join();
 
             // Load default groups on first run if no groups exist
             if (groupManager.getLoadedGroups().isEmpty()) {
