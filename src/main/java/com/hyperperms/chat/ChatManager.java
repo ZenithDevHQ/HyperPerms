@@ -71,6 +71,7 @@ public class ChatManager {
      *
      * @param plugin the HyperPerms plugin instance
      */
+    @SuppressWarnings("this-escape")
     public ChatManager(@NotNull HyperPerms plugin) {
         this.plugin = Objects.requireNonNull(plugin, "plugin cannot be null");
         this.prefixSuffixResolver = new PrefixSuffixResolver(plugin);
@@ -199,7 +200,7 @@ public class ChatManager {
     public void registerCustomPlaceholder(@NotNull String placeholder,
                                           @NotNull BiFunction<UUID, String, String> provider) {
         customPlaceholders.put(placeholder.toLowerCase(), provider);
-        chatFormatter.registerPlaceholder(placeholder, ctx -> {
+        ChatFormatter.registerPlaceholder(placeholder, ctx -> {
             UUID uuid = ctx.getUuid();
             if (uuid != null) {
                 String result = provider.apply(uuid, ctx.getPlayerName());
@@ -305,7 +306,7 @@ public class ChatManager {
             .build();
         
         // Format the message
-        String formatted = chatFormatter.format(chatFormat, context);
+        String formatted = ChatFormatter.format(chatFormat, context);
         
         // Process colors
         String colorized = ColorUtil.colorize(formatted);

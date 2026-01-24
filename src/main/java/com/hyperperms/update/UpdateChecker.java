@@ -1,6 +1,7 @@
 package com.hyperperms.update;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.hyperperms.HyperPerms;
 import com.hyperperms.util.Logger;
@@ -9,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,16 +19,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Checks for plugin updates from a remote version.json file.
+ * Checks for plugin updates from the GitHub Releases API.
  * <p>
- * Expected version.json format:
- * <pre>{@code
- * {
- *   "version": "2.3.0",
- *   "download_url": "https://example.com/HyperPerms-2.3.0.jar",
- *   "changelog": "Bug fixes and improvements"
- * }
- * }</pre>
+ * Uses the GitHub API endpoint for the latest release, parsing
+ * {@code tag_name} for the version, {@code body} for the changelog,
+ * and the first JAR asset's {@code browser_download_url} for the download.
  */
 public final class UpdateChecker {
 
@@ -81,10 +78,11 @@ public final class UpdateChecker {
             try {
                 Logger.info("[Update] Checking for updates from %s", checkUrl);
                 
-                URL url = new URL(checkUrl);
+                URL url = URI.create(checkUrl).toURL();
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("User-Agent", USER_AGENT);
+                conn.setRequestProperty("Accept", "application/vnd.github+json");
                 conn.setConnectTimeout(TIMEOUT_MS);
                 conn.setReadTimeout(TIMEOUT_MS);
 
@@ -105,11 +103,26 @@ public final class UpdateChecker {
                     json = sb.toString();
                 }
 
-                // Parse JSON
+                // Parse GitHub release JSON
                 JsonObject obj = GSON.fromJson(json, JsonObject.class);
-                String latestVersion = obj.get("version").getAsString();
-                String downloadUrl = obj.has("download_url") ? obj.get("download_url").getAsString() : null;
-                String changelog = obj.has("changelog") ? obj.get("changelog").getAsString() : null;
+                String tagName = obj.get("tag_name").getAsString();
+                String latestVersion = tagName.startsWith("v") ? tagName.substring(1) : tagName;
+                String changelog = obj.has("body") && !obj.get("body").isJsonNull()
+                        ? obj.get("body").getAsString() : null;
+
+                // Find the first .jar asset download URL
+                String downloadUrl = null;
+                if (obj.has("assets") && obj.get("assets").isJsonArray()) {
+                    JsonArray assets = obj.getAsJsonArray("assets");
+                    for (int i = 0; i < assets.size(); i++) {
+                        JsonObject asset = assets.get(i).getAsJsonObject();
+                        String assetName = asset.get("name").getAsString();
+                        if (assetName.endsWith(".jar")) {
+                            downloadUrl = asset.get("browser_download_url").getAsString();
+                            break;
+                        }
+                    }
+                }
 
                 lastCheckTime = System.currentTimeMillis();
 
@@ -147,7 +160,7 @@ public final class UpdateChecker {
             try {
                 Logger.info("[Update] Downloading update v%s from %s", info.version(), info.downloadUrl());
 
-                URL url = new URL(info.downloadUrl());
+                URL url = URI.create(info.downloadUrl()).toURL();
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("User-Agent", USER_AGENT);

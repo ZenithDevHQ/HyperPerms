@@ -11,6 +11,8 @@ import com.hypixel.hytale.server.core.command.system.arguments.system.OptionalAr
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -23,6 +25,7 @@ public class HyperPermsCommand extends AbstractCommand {
 
     private final HyperPerms hyperPerms;
 
+    @SuppressWarnings("this-escape")
     public HyperPermsCommand(HyperPerms hyperPerms) {
         super("hp", "HyperPerms management command");
         this.hyperPerms = hyperPerms;
@@ -56,9 +59,62 @@ public class HyperPermsCommand extends AbstractCommand {
 
     @Override
     protected CompletableFuture<Void> execute(CommandContext ctx) {
-        ctx.sender().sendMessage(Message.raw("HyperPerms - Permission Management"));
-        ctx.sender().sendMessage(Message.raw("Use /hp help for available commands"));
+        ctx.sender().sendMessage(buildHelpMessage());
         return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Builds the styled help message shown for "/hp" and "/hp help".
+     *
+     * Example output:
+     *
+     * --- HyperPerms -------------------------
+     *   HyperPerms management command
+     *
+     *   Commands:
+     *     group - Manage groups
+     *     user - Manage users
+     *     check - Check permissions
+     *     backup - Manage backups
+     *     export - Export data to file
+     *     import - Import data from file
+     *     reload - Reload configuration
+     *     debug - Debug tools
+     *     perms - Permission listing
+     *
+     *   Use /hp <command> --help for details
+     * ------------------------------------------
+     */
+    private Message buildHelpMessage() {
+        java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+        java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+        java.awt.Color GRAY = java.awt.Color.GRAY;
+        java.awt.Color WHITE = java.awt.Color.WHITE;
+
+        List<Message> parts = new ArrayList<>();
+        int width = 42;
+        String label = "HyperPerms";
+        int padding = width - label.length() - 2;
+        int left = 3;
+        int right = Math.max(3, padding - left);
+
+        parts.add(Message.raw("-".repeat(left) + " ").color(GRAY));
+        parts.add(Message.raw(label).color(GOLD));
+        parts.add(Message.raw(" " + "-".repeat(right) + "\n").color(GRAY));
+        parts.add(Message.raw("  " + getDescription() + "\n\n").color(WHITE));
+        parts.add(Message.raw("  Commands:\n").color(GOLD));
+
+        for (var entry : getSubCommands().entrySet()) {
+            String name = entry.getKey();
+            if (name.equals("help")) continue;
+            parts.add(Message.raw("    " + name).color(GREEN));
+            parts.add(Message.raw(" - " + entry.getValue().getDescription() + "\n").color(WHITE));
+        }
+
+        parts.add(Message.raw("\n  Use /hp <command> --help for details\n").color(GRAY));
+        parts.add(Message.raw("-".repeat(width)).color(GRAY));
+
+        return Message.join(parts.toArray(new Message[0]));
     }
 
     // ==================== Utility Methods ====================
@@ -138,72 +194,336 @@ public class HyperPermsCommand extends AbstractCommand {
         return resolveUser(hyperPerms, identifier, true);
     }
 
+    // ==================== HpCommand Base Class ====================
+
+    /**
+     * Base class for leaf commands that have arguments.
+     * Overrides getUsageString() to format help text with Message.raw()
+     * instead of Message.translation(), which requires registered translation keys.
+     *
+     * Example output of getUsageString() for "/hp user setprefix --help":
+     *
+     * --- hp user setprefix ----------------
+     *   Set a user's custom prefix
+     *
+     *   Usage: /hp user setprefix <player> [--prefix=value]
+     *
+     *   Required:
+     *     player (STRING) - Player name or UUID
+     *
+     *   Optional:
+     *     --prefix (STRING) - Prefix text (omit to clear)
+     * ------------------------------------------
+     *
+     * Example output of getUsageShort() on incorrect usage:
+     *
+     *   Usage: /hp user setprefix <player> [--prefix=value]
+     *   Required:
+     *     player (STRING) - Player name or UUID
+     */
+    private static abstract class HpCommand extends AbstractCommand {
+        private final List<ArgDescriptor> argDescriptors = new ArrayList<>();
+
+        HpCommand(String name, String description) {
+            super(name, description);
+        }
+
+        protected <D> RequiredArg<D> describeArg(String name, String description,
+                com.hypixel.hytale.server.core.command.system.arguments.types.ArgumentType<D> type) {
+            argDescriptors.add(new ArgDescriptor(name, getTypeName(type), description, true, false));
+            return withRequiredArg(name, description, type);
+        }
+
+        protected <D> RequiredArg<D> describeFlagArg(String name, String description,
+                com.hypixel.hytale.server.core.command.system.arguments.types.ArgumentType<D> type) {
+            argDescriptors.add(new ArgDescriptor(name, getTypeName(type), description, true, true));
+            return withRequiredArg(name, description, type);
+        }
+
+        protected <D> OptionalArg<D> describeOptionalArg(String name, String description,
+                com.hypixel.hytale.server.core.command.system.arguments.types.ArgumentType<D> type) {
+            argDescriptors.add(new ArgDescriptor(name, getTypeName(type), description, false, true));
+            return withOptionalArg(name, description, type);
+        }
+
+        private static final java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+        private static final java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+        private static final java.awt.Color RED = new java.awt.Color(255, 85, 85);
+        private static final java.awt.Color DARK_GRAY = new java.awt.Color(100, 100, 100);
+        private static final java.awt.Color GRAY = java.awt.Color.GRAY;
+        private static final java.awt.Color WHITE = java.awt.Color.WHITE;
+
+
+        protected static String stripQuotes(String value) {
+            if (value != null && value.length() >= 2
+                    && value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"') {
+                return value.substring(1, value.length() - 1);
+            }
+            return value;
+        }
+
+        @Override
+        public Message getUsageString(com.hypixel.hytale.server.core.command.system.CommandSender sender) {
+            List<Message> parts = new ArrayList<>();
+            String name = getFullyQualifiedName();
+
+            // Header bar
+            int width = 42;
+            int padding = width - name.length() - 2;
+            int left = 3;
+            int right = Math.max(3, padding - left);
+            parts.add(Message.raw("-".repeat(left) + " ").color(GRAY));
+            parts.add(Message.raw(name).color(GOLD));
+            parts.add(Message.raw(" " + "-".repeat(right) + "\n").color(GRAY));
+
+            // Description
+            parts.add(Message.raw("  ").color(WHITE));
+            parts.add(Message.raw(getDescription() + "\n\n").color(WHITE));
+
+            // Usage line
+            parts.add(Message.raw("  Usage: ").color(GOLD));
+            parts.add(Message.raw("/").color(GRAY));
+            parts.add(Message.raw(name).color(GOLD));
+            for (ArgDescriptor arg : argDescriptors) {
+                if (arg.required) {
+                    if (arg.isFlag) {
+                        parts.add(Message.raw(" <--" + arg.name + "=value>").color(GREEN));
+                    } else {
+                        parts.add(Message.raw(" <" + arg.name + ">").color(GREEN));
+                    }
+                } else {
+                    if (arg.isFlag) {
+                        parts.add(Message.raw(" [--" + arg.name + "=value]").color(GRAY));
+                    } else {
+                        parts.add(Message.raw(" [" + arg.name + "]").color(GRAY));
+                    }
+                }
+            }
+            parts.add(Message.raw("\n"));
+
+            // Required arguments
+            boolean hasRequired = argDescriptors.stream().anyMatch(a -> a.required);
+            if (hasRequired) {
+                parts.add(Message.raw("\n  Required:\n").color(GOLD));
+                for (ArgDescriptor arg : argDescriptors) {
+                    if (arg.required) {
+                        String argDisplay = arg.isFlag ? "--" + arg.name : arg.name;
+                        parts.add(Message.raw("    " + argDisplay).color(GREEN));
+                        parts.add(Message.raw(" (" + arg.typeName + ")").color(DARK_GRAY));
+                        parts.add(Message.raw(" - " + arg.description + "\n").color(WHITE));
+                    }
+                }
+            }
+
+            // Optional arguments
+            boolean hasOptional = argDescriptors.stream().anyMatch(a -> !a.required);
+            if (hasOptional) {
+                parts.add(Message.raw("\n  Optional:\n").color(GRAY));
+                for (ArgDescriptor arg : argDescriptors) {
+                    if (!arg.required) {
+                        String argDisplay = arg.isFlag ? "--" + arg.name : arg.name;
+                        parts.add(Message.raw("    " + argDisplay).color(GRAY));
+                        parts.add(Message.raw(" (" + arg.typeName + ")").color(DARK_GRAY));
+                        parts.add(Message.raw(" - " + arg.description + "\n").color(WHITE));
+                    }
+                }
+            }
+
+            // Footer bar
+            parts.add(Message.raw("-".repeat(42)).color(GRAY));
+
+            return Message.join(parts.toArray(new Message[0]));
+        }
+
+        @Override
+        public Message getUsageShort(com.hypixel.hytale.server.core.command.system.CommandSender sender, boolean showAll) {
+            List<Message> parts = new ArrayList<>();
+
+            // Usage line with required args in RED to emphasize what's missing
+            parts.add(Message.raw("  Usage: ").color(GOLD));
+            parts.add(Message.raw("/").color(GRAY));
+            parts.add(Message.raw(getFullyQualifiedName()).color(GOLD));
+            for (ArgDescriptor arg : argDescriptors) {
+                if (arg.required) {
+                    if (arg.isFlag) {
+                        parts.add(Message.raw(" <--" + arg.name + "=value>").color(RED));
+                    } else {
+                        parts.add(Message.raw(" <" + arg.name + ">").color(RED));
+                    }
+                } else {
+                    if (arg.isFlag) {
+                        parts.add(Message.raw(" [--" + arg.name + "=value]").color(GRAY));
+                    } else {
+                        parts.add(Message.raw(" [" + arg.name + "]").color(GRAY));
+                    }
+                }
+            }
+
+            if (showAll) {
+                boolean hasRequired = argDescriptors.stream().anyMatch(a -> a.required);
+                if (hasRequired) {
+                    parts.add(Message.raw("\n  Required:\n").color(RED));
+                    for (ArgDescriptor arg : argDescriptors) {
+                        if (arg.required) {
+                            String argDisplay = arg.isFlag ? "--" + arg.name : arg.name;
+                            parts.add(Message.raw("    " + argDisplay).color(RED));
+                            parts.add(Message.raw(" (" + arg.typeName + ")").color(DARK_GRAY));
+                            parts.add(Message.raw(" - " + arg.description + "\n").color(WHITE));
+                        }
+                    }
+                }
+            }
+
+            return Message.join(parts.toArray(new Message[0]));
+        }
+
+        private static String getTypeName(
+                com.hypixel.hytale.server.core.command.system.arguments.types.ArgumentType<?> type) {
+            if (type == ArgTypes.STRING) return "STRING";
+            if (type == ArgTypes.INTEGER) return "INTEGER";
+            if (type == ArgTypes.BOOLEAN) return "BOOLEAN";
+            if (type == ArgTypes.FLOAT) return "FLOAT";
+            if (type == ArgTypes.DOUBLE) return "DOUBLE";
+            if (type == ArgTypes.UUID) return "UUID";
+            return "VALUE";
+        }
+
+        private record ArgDescriptor(String name, String typeName, String description, boolean required, boolean isFlag) {}
+    }
+
+    /**
+     * Base class for container commands that hold subcommands.
+     * Overrides getUsageString() to list subcommands with colored formatting
+     * and a hint to use --help on individual subcommands.
+     *
+     * Example output of getUsageString() for "/hp user --help":
+     *
+     * --- hp user ----------------------------
+     *   HyperPerms user management
+     *
+     *   Subcommands:
+     *     info - Show user info
+     *     setperm - Set a user permission
+     *     unsetperm - Remove a user permission
+     *     addgroup - Add user to a group
+     *     ...
+     *
+     *   Use /hp user <subcommand> --help for details
+     * ------------------------------------------
+     *
+     * Example output of getUsageShort() on incorrect usage:
+     *
+     *   Usage: /hp user <info|setperm|unsetperm|...>
+     *   Available:
+     *     info - Show user info
+     *     setperm - Set a user permission
+     *     ...
+     */
+    private static abstract class HpContainerCommand extends AbstractCommand {
+        private static final java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+        private static final java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+        private static final java.awt.Color RED = new java.awt.Color(255, 85, 85);
+        private static final java.awt.Color GRAY = java.awt.Color.GRAY;
+        private static final java.awt.Color WHITE = java.awt.Color.WHITE;
+
+        @SuppressWarnings("this-escape")
+        HpContainerCommand(String name, String description) {
+            super(name, description);
+            addSubCommand(new AbstractCommand("help", "Show help") {
+                @Override
+                protected CompletableFuture<Void> execute(CommandContext ctx) {
+                    ctx.sender().sendMessage(HpContainerCommand.this.getUsageString(ctx.sender()));
+                    return CompletableFuture.completedFuture(null);
+                }
+            });
+        }
+
+        @Override
+        public Message getUsageString(com.hypixel.hytale.server.core.command.system.CommandSender sender) {
+            List<Message> parts = new ArrayList<>();
+            String name = getFullyQualifiedName();
+            int width = 42;
+            int padding = width - name.length() - 2;
+            int left = 3;
+            int right = Math.max(3, padding - left);
+
+            // Header bar
+            parts.add(Message.raw("-".repeat(left) + " ").color(GRAY));
+            parts.add(Message.raw(name).color(GOLD));
+            parts.add(Message.raw(" " + "-".repeat(right) + "\n").color(GRAY));
+
+            // Description
+            parts.add(Message.raw("  ").color(WHITE));
+            parts.add(Message.raw(getDescription() + "\n\n").color(WHITE));
+
+            // Subcommand list
+            parts.add(Message.raw("  Subcommands:\n").color(GOLD));
+            for (var entry : getSubCommands().entrySet()) {
+                if (entry.getKey().equals("help")) continue;
+                parts.add(Message.raw("    " + entry.getKey()).color(GREEN));
+                parts.add(Message.raw(" - " + entry.getValue().getDescription() + "\n").color(WHITE));
+            }
+
+            // Hint
+            parts.add(Message.raw("\n  Use /" + name + " <subcommand> --help for details\n").color(GRAY));
+
+            // Footer bar
+            parts.add(Message.raw("-".repeat(width)).color(GRAY));
+
+            return Message.join(parts.toArray(new Message[0]));
+        }
+
+        @Override
+        public Message getUsageShort(com.hypixel.hytale.server.core.command.system.CommandSender sender, boolean showAll) {
+            List<Message> parts = new ArrayList<>();
+
+            // Usage line showing required subcommand choice in RED
+            parts.add(Message.raw("  Usage: ").color(GOLD));
+            parts.add(Message.raw("/").color(GRAY));
+            parts.add(Message.raw(getFullyQualifiedName()).color(GOLD));
+            String subNames = " <" + getSubCommands().keySet().stream()
+                    .filter(k -> !k.equals("help"))
+                    .collect(java.util.stream.Collectors.joining("|")) + ">";
+            parts.add(Message.raw(subNames).color(RED));
+
+            if (showAll) {
+                parts.add(Message.raw("\n  Available:\n").color(RED));
+                for (var entry : getSubCommands().entrySet()) {
+                    if (entry.getKey().equals("help")) continue;
+                    parts.add(Message.raw("    " + entry.getKey()).color(GREEN));
+                    parts.add(Message.raw(" - " + entry.getValue().getDescription() + "\n").color(WHITE));
+                }
+            }
+
+            return Message.join(parts.toArray(new Message[0]));
+        }
+
+        @Override
+        protected CompletableFuture<Void> execute(CommandContext ctx) {
+            ctx.sender().sendMessage(getUsageString(ctx.sender()));
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+
     // ==================== Help Subcommand ====================
 
-    private static class HelpSubCommand extends AbstractCommand {
+    private class HelpSubCommand extends AbstractCommand {
         HelpSubCommand() {
             super("help", "Show HyperPerms help");
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("=== HyperPerms Commands ==="));
-            ctx.sender().sendMessage(Message.raw("--- General ---"));
-            ctx.sender().sendMessage(Message.raw("/hp help - Show this help"));
-            ctx.sender().sendMessage(Message.raw("/hp reload - Reload configuration"));
-            ctx.sender().sendMessage(Message.raw("/hp check <permission> - Check if you have a permission"));
-            ctx.sender().sendMessage(Message.raw("/hp check <player> <permission> - Check player permission"));
-            ctx.sender().sendMessage(Message.raw(""));
-            ctx.sender().sendMessage(Message.raw("--- Group Management ---"));
-            ctx.sender().sendMessage(Message.raw("/hp group list - List all groups"));
-            ctx.sender().sendMessage(Message.raw("/hp group info <name> - View group info"));
-            ctx.sender().sendMessage(Message.raw("/hp group create <name> - Create a group"));
-            ctx.sender().sendMessage(Message.raw("/hp group delete <name> - Delete a group"));
-            ctx.sender().sendMessage(Message.raw("/hp group rename <old> <new> - Rename a group"));
-            ctx.sender().sendMessage(Message.raw("/hp group setperm <group> <perm> [true/false] - Set permission"));
-            ctx.sender().sendMessage(Message.raw("/hp group unsetperm <group> <perm> - Remove permission"));
-            ctx.sender().sendMessage(Message.raw("/hp group setweight <group> <weight> - Set group weight"));
-            ctx.sender().sendMessage(Message.raw("/hp group setprefix <group> [prefix] [priority] - Set prefix"));
-            ctx.sender().sendMessage(Message.raw("/hp group setsuffix <group> [suffix] [priority] - Set suffix"));
-            ctx.sender().sendMessage(Message.raw("/hp group setdisplayname <group> [name] - Set display name"));
-            ctx.sender().sendMessage(Message.raw("/hp group parent add <group> <parent> - Add parent group"));
-            ctx.sender().sendMessage(Message.raw("/hp group parent remove <group> <parent> - Remove parent"));
-            ctx.sender().sendMessage(Message.raw(""));
-            ctx.sender().sendMessage(Message.raw("--- User Management ---"));
-            ctx.sender().sendMessage(Message.raw("/hp user info <player> - Show user info"));
-            ctx.sender().sendMessage(Message.raw("/hp user setperm <player> <perm> [true/false] - Set permission"));
-            ctx.sender().sendMessage(Message.raw("/hp user unsetperm <player> <perm> - Remove permission"));
-            ctx.sender().sendMessage(Message.raw("/hp user addgroup <player> <group> - Add user to group"));
-            ctx.sender().sendMessage(Message.raw("/hp user removegroup <player> <group> - Remove from group"));
-            ctx.sender().sendMessage(Message.raw("/hp user setprimarygroup <player> <group> - Set primary group"));
-            ctx.sender().sendMessage(Message.raw("/hp user setprefix <player> [prefix] - Set custom prefix"));
-            ctx.sender().sendMessage(Message.raw("/hp user setsuffix <player> [suffix] - Set custom suffix"));
-            ctx.sender().sendMessage(Message.raw("/hp user clear <player> - Clear all user data"));
-            ctx.sender().sendMessage(Message.raw("/hp user clone <source> <target> - Copy permissions"));
-            ctx.sender().sendMessage(Message.raw(""));
-            ctx.sender().sendMessage(Message.raw("--- Backup & Data ---"));
-            ctx.sender().sendMessage(Message.raw("/hp backup create - Create a manual backup"));
-            ctx.sender().sendMessage(Message.raw("/hp backup list - List available backups"));
-            ctx.sender().sendMessage(Message.raw("/hp backup restore <name> - Restore from backup"));
-            ctx.sender().sendMessage(Message.raw("/hp export [filename] - Export data to file"));
-            ctx.sender().sendMessage(Message.raw("/hp import defaults - Create default group hierarchy"));
-            ctx.sender().sendMessage(Message.raw("/hp import file <filename> - Import data from file"));
-            ctx.sender().sendMessage(Message.raw(""));
-            ctx.sender().sendMessage(Message.raw("--- Web Editor ---"));
-            ctx.sender().sendMessage(Message.raw("/hp editor - Open the web editor"));
-            ctx.sender().sendMessage(Message.raw("/hp apply <code> - Apply changes from web editor"));
+            ctx.sender().sendMessage(buildHelpMessage());
             return CompletableFuture.completedFuture(null);
         }
     }
 
     // ==================== Group Subcommand ====================
 
-    private static class GroupSubCommand extends AbstractCommand {
-        private final HyperPerms hyperPerms;
-
+    private static class GroupSubCommand extends HpContainerCommand {
         GroupSubCommand(HyperPerms hyperPerms) {
             super("group", "Manage groups");
-            this.hyperPerms = hyperPerms;
             addSubCommand(new GroupListSubCommand(hyperPerms));
             addSubCommand(new GroupInfoSubCommand(hyperPerms));
             addSubCommand(new GroupCreateSubCommand(hyperPerms));
@@ -217,12 +537,6 @@ public class HyperPermsCommand extends AbstractCommand {
             addSubCommand(new GroupRenameSubCommand(hyperPerms));
             addSubCommand(new GroupParentSubCommand(hyperPerms));
         }
-
-        @Override
-        protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("Usage: /hp group <list|info|create|delete|rename|setperm|unsetperm|setweight|setprefix|setsuffix|setdisplayname|parent>"));
-            return CompletableFuture.completedFuture(null);
-        }
     }
 
     private static class GroupListSubCommand extends AbstractCommand {
@@ -235,67 +549,128 @@ public class HyperPermsCommand extends AbstractCommand {
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
+            java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+            java.awt.Color WHITE = java.awt.Color.WHITE;
+
             var groups = hyperPerms.getGroupManager().getLoadedGroups();
-            ctx.sender().sendMessage(Message.raw("=== Groups (" + groups.size() + ") ==="));
+            int width = 42;
+            String label = "Groups (" + groups.size() + ")";
+            int padding = width - label.length() - 2;
+            int left = 3;
+            int right = Math.max(3, padding - left);
+
+            List<Message> parts = new ArrayList<>();
+            parts.add(Message.raw("-".repeat(left) + " ").color(GRAY));
+            parts.add(Message.raw(label).color(GOLD));
+            parts.add(Message.raw(" " + "-".repeat(right) + "\n").color(GRAY));
+
             for (Group group : groups) {
-                ctx.sender().sendMessage(Message.raw("- " + group.getName() + " (weight: " + group.getWeight() + ")"));
+                parts.add(Message.raw("  " + group.getName()).color(GREEN));
+                parts.add(Message.raw(" (weight: ").color(GRAY));
+                parts.add(Message.raw(String.valueOf(group.getWeight())).color(WHITE));
+                parts.add(Message.raw(")\n").color(GRAY));
             }
+
+            parts.add(Message.raw("-".repeat(width)).color(GRAY));
+            ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
             return CompletableFuture.completedFuture(null);
         }
     }
 
-    private static class GroupInfoSubCommand extends AbstractCommand {
+    private static class GroupInfoSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> nameArg;
 
         GroupInfoSubCommand(HyperPerms hyperPerms) {
             super("info", "View group info");
             this.hyperPerms = hyperPerms;
-            this.nameArg = withRequiredArg("name", "Group name", ArgTypes.STRING);
+            this.nameArg = describeArg("name", "Group name", ArgTypes.STRING);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
+            java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+            java.awt.Color WHITE = java.awt.Color.WHITE;
+
             String groupName = ctx.get(nameArg);
             Group group = hyperPerms.getGroupManager().getGroup(groupName);
             if (group == null) {
                 ctx.sender().sendMessage(Message.raw("Group not found: " + groupName));
                 return CompletableFuture.completedFuture(null);
             }
-            ctx.sender().sendMessage(Message.raw("=== Group: " + group.getName() + " ==="));
-            ctx.sender().sendMessage(Message.raw("Display Name: " + (group.getDisplayName() != null ? group.getDisplayName() : group.getName())));
-            ctx.sender().sendMessage(Message.raw("Weight: " + group.getWeight()));
-            ctx.sender().sendMessage(Message.raw("Prefix: " + (group.getPrefix() != null ? "\"" + group.getPrefix() + "\"" : "(none)")));
-            ctx.sender().sendMessage(Message.raw("Suffix: " + (group.getSuffix() != null ? "\"" + group.getSuffix() + "\"" : "(none)")));
-            ctx.sender().sendMessage(Message.raw("Prefix Priority: " + group.getPrefixPriority()));
-            ctx.sender().sendMessage(Message.raw("Suffix Priority: " + group.getSuffixPriority()));
 
-            // Show parent groups
+            int width = 42;
+            String label = "Group: " + group.getName();
+            int padding = width - label.length() - 2;
+            int left = 3;
+            int right = Math.max(3, padding - left);
+
+            List<Message> parts = new ArrayList<>();
+            parts.add(Message.raw("-".repeat(left) + " ").color(GRAY));
+            parts.add(Message.raw(label).color(GOLD));
+            parts.add(Message.raw(" " + "-".repeat(right) + "\n").color(GRAY));
+
+            // Display name
+            parts.add(Message.raw("  Display Name: ").color(GOLD));
+            parts.add(Message.raw((group.getDisplayName() != null ? group.getDisplayName() : group.getName()) + "\n").color(WHITE));
+
+            // Weight
+            parts.add(Message.raw("  Weight: ").color(GOLD));
+            parts.add(Message.raw(group.getWeight() + "\n").color(WHITE));
+
+            // Prefix
+            parts.add(Message.raw("  Prefix: ").color(GOLD));
+            parts.add(Message.raw((group.getPrefix() != null ? "\"" + group.getPrefix() + "\"" : "(none)") + "\n").color(WHITE));
+
+            // Suffix
+            parts.add(Message.raw("  Suffix: ").color(GOLD));
+            parts.add(Message.raw((group.getSuffix() != null ? "\"" + group.getSuffix() + "\"" : "(none)") + "\n").color(WHITE));
+
+            // Priorities
+            parts.add(Message.raw("  Prefix Priority: ").color(GRAY));
+            parts.add(Message.raw(group.getPrefixPriority() + "\n").color(WHITE));
+            parts.add(Message.raw("  Suffix Priority: ").color(GRAY));
+            parts.add(Message.raw(group.getSuffixPriority() + "\n").color(WHITE));
+
+            // Parents
             var parents = group.getParentGroups();
-            if (!parents.isEmpty()) {
-                ctx.sender().sendMessage(Message.raw("Parents: " + String.join(", ", parents)));
-            }
+            parts.add(Message.raw("  Parents: ").color(GOLD));
+            parts.add(Message.raw((!parents.isEmpty() ? String.join(", ", parents) : "(none)") + "\n").color(GREEN));
 
-            // Show permissions
-            ctx.sender().sendMessage(Message.raw("Permissions: " + group.getNodes().size()));
-            for (Node node : group.getNodes()) {
-                if (!node.isGroupNode()) {
-                    String prefix = node.getValue() ? "+" : "-";
-                    ctx.sender().sendMessage(Message.raw("  " + prefix + " " + node.getPermission()));
+            // Permissions
+            java.awt.Color RED = new java.awt.Color(255, 85, 85);
+            long permCount = group.getNodes().stream().filter(n -> !n.isGroupNode()).count();
+            parts.add(Message.raw("\n  Permissions (" + permCount + "):\n").color(GOLD));
+            if (permCount == 0) {
+                parts.add(Message.raw("    (none)\n").color(GRAY));
+            } else {
+                for (Node node : group.getNodes()) {
+                    if (!node.isGroupNode()) {
+                        String prefix = node.getValue() ? "+" : "-";
+                        java.awt.Color permColor = node.getValue() ? GREEN : RED;
+                        parts.add(Message.raw("    " + prefix + " " + node.getPermission() + "\n").color(permColor));
+                    }
                 }
             }
+
+            parts.add(Message.raw("-".repeat(width)).color(GRAY));
+            ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
             return CompletableFuture.completedFuture(null);
         }
     }
 
-    private static class GroupCreateSubCommand extends AbstractCommand {
+    private static class GroupCreateSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> nameArg;
 
         GroupCreateSubCommand(HyperPerms hyperPerms) {
             super("create", "Create a new group");
             this.hyperPerms = hyperPerms;
-            this.nameArg = withRequiredArg("name", "Group name", ArgTypes.STRING);
+            this.nameArg = describeArg("name", "Group name", ArgTypes.STRING);
         }
 
         @Override
@@ -311,14 +686,14 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupDeleteSubCommand extends AbstractCommand {
+    private static class GroupDeleteSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> nameArg;
 
         GroupDeleteSubCommand(HyperPerms hyperPerms) {
             super("delete", "Delete a group");
             this.hyperPerms = hyperPerms;
-            this.nameArg = withRequiredArg("name", "Group name", ArgTypes.STRING);
+            this.nameArg = describeArg("name", "Group name", ArgTypes.STRING);
         }
 
         @Override
@@ -334,7 +709,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupSetPermSubCommand extends AbstractCommand {
+    private static class GroupSetPermSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> groupArg;
         private final RequiredArg<String> permArg;
@@ -343,9 +718,9 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupSetPermSubCommand(HyperPerms hyperPerms) {
             super("setperm", "Set a permission on a group");
             this.hyperPerms = hyperPerms;
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
-            this.permArg = withRequiredArg("permission", "Permission node", ArgTypes.STRING);
-            this.valueArg = withOptionalArg("value", "true or false (default: true)", ArgTypes.STRING);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
+            this.permArg = describeArg("permission", "Permission node", ArgTypes.STRING);
+            this.valueArg = describeOptionalArg("value", "true or false (default: true)", ArgTypes.STRING);
         }
 
         @Override
@@ -374,7 +749,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupUnsetPermSubCommand extends AbstractCommand {
+    private static class GroupUnsetPermSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> groupArg;
         private final RequiredArg<String> permArg;
@@ -382,8 +757,8 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupUnsetPermSubCommand(HyperPerms hyperPerms) {
             super("unsetperm", "Remove a permission from a group");
             this.hyperPerms = hyperPerms;
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
-            this.permArg = withRequiredArg("permission", "Permission node", ArgTypes.STRING);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
+            this.permArg = describeArg("permission", "Permission node", ArgTypes.STRING);
         }
 
         @Override
@@ -409,7 +784,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupSetWeightSubCommand extends AbstractCommand {
+    private static class GroupSetWeightSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> groupArg;
         private final RequiredArg<Integer> weightArg;
@@ -417,8 +792,8 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupSetWeightSubCommand(HyperPerms hyperPerms) {
             super("setweight", "Set a group's weight/priority");
             this.hyperPerms = hyperPerms;
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
-            this.weightArg = withRequiredArg("weight", "Weight value", ArgTypes.INTEGER);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
+            this.weightArg = describeArg("weight", "Weight value", ArgTypes.INTEGER);
         }
 
         @Override
@@ -442,7 +817,7 @@ public class HyperPermsCommand extends AbstractCommand {
     }
 
 
-    private static class GroupSetPrefixSubCommand extends AbstractCommand {
+    private static class GroupSetPrefixSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> groupArg;
         private final OptionalArg<String> prefixArg;
@@ -451,15 +826,15 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupSetPrefixSubCommand(HyperPerms hyperPerms) {
             super("setprefix", "Set a group's chat prefix");
             this.hyperPerms = hyperPerms;
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
-            this.prefixArg = withOptionalArg("prefix", "Prefix text (omit to clear)", ArgTypes.STRING);
-            this.priorityArg = withOptionalArg("priority", "Priority for multi-group resolution", ArgTypes.INTEGER);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
+            this.prefixArg = describeOptionalArg("prefix", "Prefix text (omit to clear)", ArgTypes.STRING);
+            this.priorityArg = describeOptionalArg("priority", "Priority for multi-group resolution", ArgTypes.INTEGER);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
             String groupName = ctx.get(groupArg);
-            String prefix = ctx.get(prefixArg);
+            String prefix = stripQuotes(ctx.get(prefixArg));
             Integer priority = ctx.get(priorityArg);
 
             Group group = hyperPerms.getGroupManager().getGroup(groupName);
@@ -488,7 +863,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupSetSuffixSubCommand extends AbstractCommand {
+    private static class GroupSetSuffixSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> groupArg;
         private final OptionalArg<String> suffixArg;
@@ -497,15 +872,15 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupSetSuffixSubCommand(HyperPerms hyperPerms) {
             super("setsuffix", "Set a group's chat suffix");
             this.hyperPerms = hyperPerms;
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
-            this.suffixArg = withOptionalArg("suffix", "Suffix text (omit to clear)", ArgTypes.STRING);
-            this.priorityArg = withOptionalArg("priority", "Priority for multi-group resolution", ArgTypes.INTEGER);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
+            this.suffixArg = describeOptionalArg("suffix", "Suffix text (omit to clear)", ArgTypes.STRING);
+            this.priorityArg = describeOptionalArg("priority", "Priority for multi-group resolution", ArgTypes.INTEGER);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
             String groupName = ctx.get(groupArg);
-            String suffix = ctx.get(suffixArg);
+            String suffix = stripQuotes(ctx.get(suffixArg));
             Integer priority = ctx.get(priorityArg);
 
             Group group = hyperPerms.getGroupManager().getGroup(groupName);
@@ -534,7 +909,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupSetDisplayNameSubCommand extends AbstractCommand {
+    private static class GroupSetDisplayNameSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> groupArg;
         private final OptionalArg<String> displayNameArg;
@@ -542,8 +917,8 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupSetDisplayNameSubCommand(HyperPerms hyperPerms) {
             super("setdisplayname", "Set a group's display name");
             this.hyperPerms = hyperPerms;
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
-            this.displayNameArg = withOptionalArg("displayname", "Display name (omit to clear)", ArgTypes.STRING);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
+            this.displayNameArg = describeOptionalArg("displayname", "Display name (omit to clear)", ArgTypes.STRING);
         }
 
         @Override
@@ -570,7 +945,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupRenameSubCommand extends AbstractCommand {
+    private static class GroupRenameSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> oldNameArg;
         private final RequiredArg<String> newNameArg;
@@ -578,8 +953,8 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupRenameSubCommand(HyperPerms hyperPerms) {
             super("rename", "Rename a group");
             this.hyperPerms = hyperPerms;
-            this.oldNameArg = withRequiredArg("oldname", "Current group name", ArgTypes.STRING);
-            this.newNameArg = withRequiredArg("newname", "New group name", ArgTypes.STRING);
+            this.oldNameArg = describeArg("oldname", "Current group name", ArgTypes.STRING);
+            this.newNameArg = describeArg("newname", "New group name", ArgTypes.STRING);
         }
 
         @Override
@@ -648,24 +1023,15 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupParentSubCommand extends AbstractCommand {
-        private final HyperPerms hyperPerms;
-
+    private static class GroupParentSubCommand extends HpContainerCommand {
         GroupParentSubCommand(HyperPerms hyperPerms) {
             super("parent", "Manage group parents (inheritance)");
-            this.hyperPerms = hyperPerms;
             addSubCommand(new GroupParentAddSubCommand(hyperPerms));
             addSubCommand(new GroupParentRemoveSubCommand(hyperPerms));
         }
-
-        @Override
-        protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("Usage: /hp group parent <add|remove> <group> <parent>"));
-            return CompletableFuture.completedFuture(null);
-        }
     }
 
-    private static class GroupParentAddSubCommand extends AbstractCommand {
+    private static class GroupParentAddSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> groupArg;
         private final RequiredArg<String> parentArg;
@@ -673,8 +1039,8 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupParentAddSubCommand(HyperPerms hyperPerms) {
             super("add", "Add a parent group");
             this.hyperPerms = hyperPerms;
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
-            this.parentArg = withRequiredArg("parent", "Parent group name", ArgTypes.STRING);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
+            this.parentArg = describeArg("parent", "Parent group name", ArgTypes.STRING);
         }
 
         @Override
@@ -711,7 +1077,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class GroupParentRemoveSubCommand extends AbstractCommand {
+    private static class GroupParentRemoveSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> groupArg;
         private final RequiredArg<String> parentArg;
@@ -719,8 +1085,8 @@ public class HyperPermsCommand extends AbstractCommand {
         GroupParentRemoveSubCommand(HyperPerms hyperPerms) {
             super("remove", "Remove a parent group");
             this.hyperPerms = hyperPerms;
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
-            this.parentArg = withRequiredArg("parent", "Parent group name", ArgTypes.STRING);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
+            this.parentArg = describeArg("parent", "Parent group name", ArgTypes.STRING);
         }
 
         @Override
@@ -748,12 +1114,9 @@ public class HyperPermsCommand extends AbstractCommand {
 
     // ==================== User Subcommand ====================
 
-    private static class UserSubCommand extends AbstractCommand {
-        private final HyperPerms hyperPerms;
-
+    private static class UserSubCommand extends HpContainerCommand {
         UserSubCommand(HyperPerms hyperPerms) {
             super("user", "Manage users");
-            this.hyperPerms = hyperPerms;
             addSubCommand(new UserInfoSubCommand(hyperPerms));
             addSubCommand(new UserSetPermSubCommand(hyperPerms));
             addSubCommand(new UserUnsetPermSubCommand(hyperPerms));
@@ -765,26 +1128,26 @@ public class HyperPermsCommand extends AbstractCommand {
             addSubCommand(new UserClearSubCommand(hyperPerms));
             addSubCommand(new UserCloneSubCommand(hyperPerms));
         }
-
-        @Override
-        protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("Usage: /hp user <info|setperm|unsetperm|addgroup|removegroup|setprimarygroup|setprefix|setsuffix|clear|clone>"));
-            return CompletableFuture.completedFuture(null);
-        }
     }
 
-    private static class UserInfoSubCommand extends AbstractCommand {
+    private static class UserInfoSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
 
         UserInfoSubCommand(HyperPerms hyperPerms) {
             super("info", "Show user's groups and permissions");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
+            java.awt.Color GOLD = new java.awt.Color(255, 170, 0);
+            java.awt.Color GREEN = new java.awt.Color(85, 255, 85);
+            java.awt.Color RED = new java.awt.Color(255, 85, 85);
+            java.awt.Color GRAY = java.awt.Color.GRAY;
+            java.awt.Color WHITE = java.awt.Color.WHITE;
+
             String identifier = ctx.get(playerArg);
             User user = resolveUser(hyperPerms, identifier);
 
@@ -794,39 +1157,60 @@ public class HyperPermsCommand extends AbstractCommand {
                 return CompletableFuture.completedFuture(null);
             }
 
-            ctx.sender().sendMessage(Message.raw("=== User: " + user.getFriendlyName() + " ==="));
-            ctx.sender().sendMessage(Message.raw("UUID: " + user.getUuid()));
-            ctx.sender().sendMessage(Message.raw("Primary Group: " + user.getPrimaryGroup()));
-            ctx.sender().sendMessage(Message.raw("Custom Prefix: " + (user.getCustomPrefix() != null ? "\"" + user.getCustomPrefix() + "\"" : "(none)")));
-            ctx.sender().sendMessage(Message.raw("Custom Suffix: " + (user.getCustomSuffix() != null ? "\"" + user.getCustomSuffix() + "\"" : "(none)")));
+            int width = 42;
+            String label = "User: " + user.getFriendlyName();
+            int padding = width - label.length() - 2;
+            int left = 3;
+            int right = Math.max(3, padding - left);
 
-            // Show groups
+            List<Message> parts = new ArrayList<>();
+            parts.add(Message.raw("-".repeat(left) + " ").color(GRAY));
+            parts.add(Message.raw(label).color(GOLD));
+            parts.add(Message.raw(" " + "-".repeat(right) + "\n").color(GRAY));
+
+            // UUID
+            parts.add(Message.raw("  UUID: ").color(GRAY));
+            parts.add(Message.raw(user.getUuid().toString() + "\n").color(WHITE));
+
+            // Primary group
+            parts.add(Message.raw("  Primary Group: ").color(GOLD));
+            parts.add(Message.raw(user.getPrimaryGroup() + "\n").color(GREEN));
+
+            // Custom prefix
+            parts.add(Message.raw("  Custom Prefix: ").color(GOLD));
+            parts.add(Message.raw((user.getCustomPrefix() != null ? "\"" + user.getCustomPrefix() + "\"" : "(none)") + "\n").color(WHITE));
+
+            // Custom suffix
+            parts.add(Message.raw("  Custom Suffix: ").color(GOLD));
+            parts.add(Message.raw((user.getCustomSuffix() != null ? "\"" + user.getCustomSuffix() + "\"" : "(none)") + "\n").color(WHITE));
+
+            // Groups
             var groups = user.getInheritedGroups();
-            if (!groups.isEmpty()) {
-                ctx.sender().sendMessage(Message.raw("Groups: " + String.join(", ", groups)));
-            } else {
-                ctx.sender().sendMessage(Message.raw("Groups: (none)"));
-            }
+            parts.add(Message.raw("  Groups: ").color(GOLD));
+            parts.add(Message.raw((!groups.isEmpty() ? String.join(", ", groups) : "(none)") + "\n").color(GREEN));
 
-            // Show direct permissions (not group inheritance nodes)
-            ctx.sender().sendMessage(Message.raw("Direct Permissions:"));
-            int permCount = 0;
-            for (Node node : user.getNodes()) {
-                if (!node.isGroupNode()) {
-                    String prefix = node.getValue() ? "+" : "-";
-                    ctx.sender().sendMessage(Message.raw("  " + prefix + " " + node.getPermission()));
-                    permCount++;
+            // Direct permissions
+            long permCount = user.getNodes().stream().filter(n -> !n.isGroupNode()).count();
+            parts.add(Message.raw("\n  Direct Permissions (" + permCount + "):\n").color(GOLD));
+            if (permCount == 0) {
+                parts.add(Message.raw("    (none)\n").color(GRAY));
+            } else {
+                for (Node node : user.getNodes()) {
+                    if (!node.isGroupNode()) {
+                        String prefix = node.getValue() ? "+" : "-";
+                        java.awt.Color permColor = node.getValue() ? GREEN : RED;
+                        parts.add(Message.raw("    " + prefix + " " + node.getPermission() + "\n").color(permColor));
+                    }
                 }
             }
-            if (permCount == 0) {
-                ctx.sender().sendMessage(Message.raw("  (none)"));
-            }
 
+            parts.add(Message.raw("-".repeat(width)).color(GRAY));
+            ctx.sender().sendMessage(Message.join(parts.toArray(new Message[0])));
             return CompletableFuture.completedFuture(null);
         }
     }
 
-    private static class UserSetPermSubCommand extends AbstractCommand {
+    private static class UserSetPermSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
         private final RequiredArg<String> permArg;
@@ -835,9 +1219,9 @@ public class HyperPermsCommand extends AbstractCommand {
         UserSetPermSubCommand(HyperPerms hyperPerms) {
             super("setperm", "Set a permission on a user");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
-            this.permArg = withRequiredArg("permission", "Permission node", ArgTypes.STRING);
-            this.valueArg = withOptionalArg("value", "true or false (default: true)", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.permArg = describeArg("permission", "Permission node", ArgTypes.STRING);
+            this.valueArg = describeOptionalArg("value", "true or false (default: true)", ArgTypes.STRING);
         }
 
         @Override
@@ -868,7 +1252,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class UserUnsetPermSubCommand extends AbstractCommand {
+    private static class UserUnsetPermSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
         private final RequiredArg<String> permArg;
@@ -876,8 +1260,8 @@ public class HyperPermsCommand extends AbstractCommand {
         UserUnsetPermSubCommand(HyperPerms hyperPerms) {
             super("unsetperm", "Remove a permission from a user");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
-            this.permArg = withRequiredArg("permission", "Permission node", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.permArg = describeArg("permission", "Permission node", ArgTypes.STRING);
         }
 
         @Override
@@ -903,7 +1287,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class UserAddGroupSubCommand extends AbstractCommand {
+    private static class UserAddGroupSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
         private final RequiredArg<String> groupArg;
@@ -911,8 +1295,8 @@ public class HyperPermsCommand extends AbstractCommand {
         UserAddGroupSubCommand(HyperPerms hyperPerms) {
             super("addgroup", "Add a user to a group");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
         }
 
         @Override
@@ -946,7 +1330,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class UserRemoveGroupSubCommand extends AbstractCommand {
+    private static class UserRemoveGroupSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
         private final RequiredArg<String> groupArg;
@@ -954,8 +1338,8 @@ public class HyperPermsCommand extends AbstractCommand {
         UserRemoveGroupSubCommand(HyperPerms hyperPerms) {
             super("removegroup", "Remove a user from a group");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
         }
 
         @Override
@@ -981,7 +1365,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class UserSetPrimaryGroupSubCommand extends AbstractCommand {
+    private static class UserSetPrimaryGroupSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
         private final RequiredArg<String> groupArg;
@@ -989,8 +1373,8 @@ public class HyperPermsCommand extends AbstractCommand {
         UserSetPrimaryGroupSubCommand(HyperPerms hyperPerms) {
             super("setprimarygroup", "Set a user's primary/display group");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
-            this.groupArg = withRequiredArg("group", "Group name", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.groupArg = describeArg("group", "Group name", ArgTypes.STRING);
         }
 
         @Override
@@ -1028,7 +1412,7 @@ public class HyperPermsCommand extends AbstractCommand {
     }
 
 
-    private static class UserSetPrefixSubCommand extends AbstractCommand {
+    private static class UserSetPrefixSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
         private final OptionalArg<String> prefixArg;
@@ -1036,14 +1420,14 @@ public class HyperPermsCommand extends AbstractCommand {
         UserSetPrefixSubCommand(HyperPerms hyperPerms) {
             super("setprefix", "Set a user's custom prefix");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
-            this.prefixArg = withOptionalArg("prefix", "Prefix text (omit to clear)", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.prefixArg = describeOptionalArg("prefix", "Prefix text (omit to clear)", ArgTypes.STRING);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
             String identifier = ctx.get(playerArg);
-            String prefix = ctx.get(prefixArg);
+            String prefix = stripQuotes(ctx.get(prefixArg));
 
             User user = resolveUser(hyperPerms, identifier);
             if (user == null) {
@@ -1066,7 +1450,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class UserSetSuffixSubCommand extends AbstractCommand {
+    private static class UserSetSuffixSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
         private final OptionalArg<String> suffixArg;
@@ -1074,14 +1458,14 @@ public class HyperPermsCommand extends AbstractCommand {
         UserSetSuffixSubCommand(HyperPerms hyperPerms) {
             super("setsuffix", "Set a user's custom suffix");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
-            this.suffixArg = withOptionalArg("suffix", "Suffix text (omit to clear)", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.suffixArg = describeOptionalArg("suffix", "Suffix text (omit to clear)", ArgTypes.STRING);
         }
 
         @Override
         protected CompletableFuture<Void> execute(CommandContext ctx) {
             String identifier = ctx.get(playerArg);
-            String suffix = ctx.get(suffixArg);
+            String suffix = stripQuotes(ctx.get(suffixArg));
 
             User user = resolveUser(hyperPerms, identifier);
             if (user == null) {
@@ -1104,14 +1488,14 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class UserClearSubCommand extends AbstractCommand {
+    private static class UserClearSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> playerArg;
 
         UserClearSubCommand(HyperPerms hyperPerms) {
             super("clear", "Clear all data for a user");
             this.hyperPerms = hyperPerms;
-            this.playerArg = withRequiredArg("player", "Player name or UUID", ArgTypes.STRING);
+            this.playerArg = describeArg("player", "Player name or UUID", ArgTypes.STRING);
         }
 
         @Override
@@ -1140,7 +1524,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class UserCloneSubCommand extends AbstractCommand {
+    private static class UserCloneSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> sourceArg;
         private final RequiredArg<String> targetArg;
@@ -1148,8 +1532,8 @@ public class HyperPermsCommand extends AbstractCommand {
         UserCloneSubCommand(HyperPerms hyperPerms) {
             super("clone", "Copy permissions from one user to another");
             this.hyperPerms = hyperPerms;
-            this.sourceArg = withRequiredArg("source", "Source player name or UUID", ArgTypes.STRING);
-            this.targetArg = withRequiredArg("target", "Target player name or UUID", ArgTypes.STRING);
+            this.sourceArg = describeArg("source", "Source player name or UUID", ArgTypes.STRING);
+            this.targetArg = describeArg("target", "Target player name or UUID", ArgTypes.STRING);
         }
 
         @Override
@@ -1200,7 +1584,7 @@ public class HyperPermsCommand extends AbstractCommand {
 
     // ==================== Check Subcommand ====================
 
-    private static class CheckSubCommand extends AbstractCommand {
+    private static class CheckSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> arg1;
         private final OptionalArg<String> arg2;
@@ -1208,8 +1592,8 @@ public class HyperPermsCommand extends AbstractCommand {
         CheckSubCommand(HyperPerms hyperPerms) {
             super("check", "Check permission for self or another player");
             this.hyperPerms = hyperPerms;
-            this.arg1 = withRequiredArg("permission_or_player", "Permission to check, or player name/UUID", ArgTypes.STRING);
-            this.arg2 = withOptionalArg("permission", "Permission (when checking another player)", ArgTypes.STRING);
+            this.arg1 = describeArg("permission_or_player", "Permission to check, or player name/UUID", ArgTypes.STRING);
+            this.arg2 = describeOptionalArg("permission", "Permission (when checking another player)", ArgTypes.STRING);
         }
 
         @Override
@@ -1250,21 +1634,12 @@ public class HyperPermsCommand extends AbstractCommand {
 
     // ==================== Backup Subcommand ====================
 
-    private static class BackupSubCommand extends AbstractCommand {
-        private final HyperPerms hyperPerms;
-
+    private static class BackupSubCommand extends HpContainerCommand {
         BackupSubCommand(HyperPerms hyperPerms) {
             super("backup", "Manage backups");
-            this.hyperPerms = hyperPerms;
             addSubCommand(new BackupCreateSubCommand(hyperPerms));
             addSubCommand(new BackupListSubCommand(hyperPerms));
             addSubCommand(new BackupRestoreSubCommand(hyperPerms));
-        }
-
-        @Override
-        protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("Usage: /hp backup <create|list|restore>"));
-            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -1336,14 +1711,14 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class BackupRestoreSubCommand extends AbstractCommand {
+    private static class BackupRestoreSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> backupArg;
 
         BackupRestoreSubCommand(HyperPerms hyperPerms) {
             super("restore", "Restore from a backup");
             this.hyperPerms = hyperPerms;
-            this.backupArg = withRequiredArg("backup", "Backup file name", ArgTypes.STRING);
+            this.backupArg = describeArg("backup", "Backup file name", ArgTypes.STRING);
         }
 
         @Override
@@ -1377,14 +1752,14 @@ public class HyperPermsCommand extends AbstractCommand {
 
     // ==================== Export/Import Subcommands ====================
 
-    private static class ExportSubCommand extends AbstractCommand {
+    private static class ExportSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final OptionalArg<String> filenameArg;
 
         ExportSubCommand(HyperPerms hyperPerms) {
             super("export", "Export all data to a file");
             this.hyperPerms = hyperPerms;
-            this.filenameArg = withOptionalArg("filename", "Export file name", ArgTypes.STRING);
+            this.filenameArg = describeOptionalArg("filename", "Export file name", ArgTypes.STRING);
         }
 
         @Override
@@ -1418,22 +1793,11 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class ImportSubCommand extends AbstractCommand {
-        private final HyperPerms hyperPerms;
-
+    private static class ImportSubCommand extends HpContainerCommand {
         ImportSubCommand(HyperPerms hyperPerms) {
             super("import", "Import data from file or create defaults");
-            this.hyperPerms = hyperPerms;
             addSubCommand(new ImportDefaultsSubCommand(hyperPerms));
             addSubCommand(new ImportFileSubCommand(hyperPerms));
-        }
-
-        @Override
-        protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("Usage:"));
-            ctx.sender().sendMessage(Message.raw("  /hp import defaults - Create default group hierarchy"));
-            ctx.sender().sendMessage(Message.raw("  /hp import file <filename> - Import from backup file"));
-            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -1557,14 +1921,14 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class ImportFileSubCommand extends AbstractCommand {
+    private static class ImportFileSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> filenameArg;
 
         ImportFileSubCommand(HyperPerms hyperPerms) {
             super("file", "Import data from a backup file");
             this.hyperPerms = hyperPerms;
-            this.filenameArg = withRequiredArg("filename", "Import file name", ArgTypes.STRING);
+            this.filenameArg = describeArg("filename", "Import file name", ArgTypes.STRING);
         }
 
         @Override
@@ -1732,23 +2096,13 @@ public class HyperPermsCommand extends AbstractCommand {
 
     // ==================== Debug Subcommands ====================
 
-    private static class DebugSubCommand extends AbstractCommand {
+    private static class DebugSubCommand extends HpContainerCommand {
         DebugSubCommand(HyperPerms hyperPerms) {
             super("debug", "Debug commands for troubleshooting");
             addSubCommand(new DebugTreeSubCommand(hyperPerms));
             addSubCommand(new DebugResolveSubCommand(hyperPerms));
             addSubCommand(new DebugContextsSubCommand(hyperPerms));
             addSubCommand(new DebugPermsSubCommand());
-        }
-
-        @Override
-        protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("Debug subcommands:"));
-            ctx.sender().sendMessage(Message.raw("  /hp debug tree <user> - Show inheritance tree"));
-            ctx.sender().sendMessage(Message.raw("  /hp debug resolve <user> <permission> - Show permission resolution"));
-            ctx.sender().sendMessage(Message.raw("  /hp debug contexts <user> - Show current contexts"));
-            ctx.sender().sendMessage(Message.raw("  /hp debug perms - Toggle verbose permission check logging"));
-            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -1774,14 +2128,14 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class DebugTreeSubCommand extends AbstractCommand {
+    private static class DebugTreeSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> userArg;
 
         DebugTreeSubCommand(HyperPerms hyperPerms) {
             super("tree", "Show inheritance tree for a user");
             this.hyperPerms = hyperPerms;
-            this.userArg = withRequiredArg("user", "Player name or UUID", ArgTypes.STRING);
+            this.userArg = describeArg("user", "Player name or UUID", ArgTypes.STRING);
         }
 
         @Override
@@ -1867,7 +2221,7 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class DebugResolveSubCommand extends AbstractCommand {
+    private static class DebugResolveSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> userArg;
         private final RequiredArg<String> permArg;
@@ -1875,8 +2229,8 @@ public class HyperPermsCommand extends AbstractCommand {
         DebugResolveSubCommand(HyperPerms hyperPerms) {
             super("resolve", "Debug permission resolution step-by-step");
             this.hyperPerms = hyperPerms;
-            this.userArg = withRequiredArg("user", "Player name or UUID", ArgTypes.STRING);
-            this.permArg = withRequiredArg("permission", "Permission to resolve", ArgTypes.STRING);
+            this.userArg = describeArg("user", "Player name or UUID", ArgTypes.STRING);
+            this.permArg = describeArg("permission", "Permission to resolve", ArgTypes.STRING);
         }
 
         @Override
@@ -1912,14 +2266,14 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class DebugContextsSubCommand extends AbstractCommand {
+    private static class DebugContextsSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> userArg;
 
         DebugContextsSubCommand(HyperPerms hyperPerms) {
             super("contexts", "Show all current contexts for a user");
             this.hyperPerms = hyperPerms;
-            this.userArg = withRequiredArg("user", "Player name or UUID", ArgTypes.STRING);
+            this.userArg = describeArg("user", "Player name or UUID", ArgTypes.STRING);
         }
 
         @Override
@@ -1953,30 +2307,22 @@ public class HyperPermsCommand extends AbstractCommand {
 
     // ==================== Permission List Subcommands ====================
 
-    private static class PermsSubCommand extends AbstractCommand {
+    private static class PermsSubCommand extends HpContainerCommand {
         PermsSubCommand(HyperPerms hyperPerms) {
             super("perms", "Permission listing and search");
             addSubCommand(new PermsListSubCommand(hyperPerms));
             addSubCommand(new PermsSearchSubCommand(hyperPerms));
         }
-
-        @Override
-        protected CompletableFuture<Void> execute(CommandContext ctx) {
-            ctx.sender().sendMessage(Message.raw("Permission subcommands:"));
-            ctx.sender().sendMessage(Message.raw("  /hp perms list [category] - List registered permissions"));
-            ctx.sender().sendMessage(Message.raw("  /hp perms search <query> - Search permissions"));
-            return CompletableFuture.completedFuture(null);
-        }
     }
 
-    private static class PermsListSubCommand extends AbstractCommand {
+    private static class PermsListSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final OptionalArg<String> categoryArg;
 
         PermsListSubCommand(HyperPerms hyperPerms) {
             super("list", "List registered permissions");
             this.hyperPerms = hyperPerms;
-            this.categoryArg = withOptionalArg("category", "Filter by category", ArgTypes.STRING);
+            this.categoryArg = describeOptionalArg("category", "Filter by category", ArgTypes.STRING);
         }
 
         @Override
@@ -2014,14 +2360,14 @@ public class HyperPermsCommand extends AbstractCommand {
         }
     }
 
-    private static class PermsSearchSubCommand extends AbstractCommand {
+    private static class PermsSearchSubCommand extends HpCommand {
         private final HyperPerms hyperPerms;
         private final RequiredArg<String> queryArg;
 
         PermsSearchSubCommand(HyperPerms hyperPerms) {
             super("search", "Search for permissions by name or description");
             this.hyperPerms = hyperPerms;
-            this.queryArg = withRequiredArg("query", "Search query", ArgTypes.STRING);
+            this.queryArg = describeArg("query", "Search query", ArgTypes.STRING);
         }
 
         @Override

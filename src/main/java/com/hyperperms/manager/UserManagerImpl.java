@@ -129,7 +129,7 @@ public final class UserManagerImpl implements UserManager {
                 futures.add(storage.saveUser(user));
             }
         }
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
     }
 
     /**

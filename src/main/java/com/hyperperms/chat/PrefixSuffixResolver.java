@@ -57,6 +57,7 @@ public class PrefixSuffixResolver {
      *
      * @param plugin the HyperPerms plugin instance
      */
+    @SuppressWarnings("this-escape")
     public PrefixSuffixResolver(@NotNull HyperPerms plugin) {
         this.plugin = Objects.requireNonNull(plugin, "plugin cannot be null");
         loadConfigDefaults();
@@ -191,7 +192,7 @@ public class PrefixSuffixResolver {
             .map(name -> plugin.getStorage().loadGroup(name))
             .collect(Collectors.toList());
         
-        return CompletableFuture.allOf(groupFutures.toArray(new CompletableFuture[0]))
+        return CompletableFuture.allOf(groupFutures.toArray(new CompletableFuture<?>[0]))
             .thenCompose(v -> {
                 List<Group> groups = groupFutures.stream()
                     .map(CompletableFuture::join)
@@ -267,7 +268,7 @@ public class PrefixSuffixResolver {
             .map(name -> plugin.getStorage().loadGroup(name))
             .collect(Collectors.toList());
         
-        return CompletableFuture.allOf(parentFutures.toArray(new CompletableFuture[0]))
+        return CompletableFuture.allOf(parentFutures.toArray(new CompletableFuture<?>[0]))
             .thenCompose(v -> {
                 List<Group> parentGroups = parentFutures.stream()
                     .map(CompletableFuture::join)
@@ -455,7 +456,7 @@ public class PrefixSuffixResolver {
             .map(name -> plugin.getStorage().loadGroup(name))
             .collect(Collectors.toList());
         
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
             .thenApply(v -> futures.stream()
                 .map(CompletableFuture::join)
                 .filter(Optional::isPresent)
