@@ -1,7 +1,7 @@
 package com.hyperperms.manager;
 
 import com.hyperperms.api.HyperPermsAPI.GroupManager;
-import com.hyperperms.cache.PermissionCache;
+import com.hyperperms.cache.CacheInvalidator;
 import com.hyperperms.model.Group;
 import com.hyperperms.storage.StorageProvider;
 import com.hyperperms.util.Logger;
@@ -19,12 +19,12 @@ import java.util.function.Consumer;
 public final class GroupManagerImpl implements GroupManager {
 
     private final StorageProvider storage;
-    private final PermissionCache cache;
+    private final CacheInvalidator cacheInvalidator;
     private final Map<String, Group> loadedGroups = new ConcurrentHashMap<>();
 
-    public GroupManagerImpl(@NotNull StorageProvider storage, @NotNull PermissionCache cache) {
+    public GroupManagerImpl(@NotNull StorageProvider storage, @NotNull CacheInvalidator cacheInvalidator) {
         this.storage = storage;
-        this.cache = cache;
+        this.cacheInvalidator = cacheInvalidator;
     }
 
     @Override
@@ -51,12 +51,14 @@ public final class GroupManagerImpl implements GroupManager {
     @NotNull
     public Group createGroup(@NotNull String name) {
         String lowerName = name.toLowerCase();
-        if (loadedGroups.containsKey(lowerName)) {
+        Group group = new Group(lowerName);
+
+        // putIfAbsent is atomic - prevents concurrent duplicate creation
+        Group existing = loadedGroups.putIfAbsent(lowerName, group);
+        if (existing != null) {
             throw new IllegalArgumentException("Group already exists: " + name);
         }
 
-        Group group = new Group(lowerName);
-        loadedGroups.put(lowerName, group);
         storage.saveGroup(group);
         Logger.info("Created group: " + name);
         return group;
@@ -66,14 +68,16 @@ public final class GroupManagerImpl implements GroupManager {
     public CompletableFuture<Void> deleteGroup(@NotNull String name) {
         String lowerName = name.toLowerCase();
         loadedGroups.remove(lowerName);
-        cache.invalidateAll(); // Group deletion affects many users
+        // Invalidate all users in the deleted group
+        cacheInvalidator.invalidateGroup(lowerName);
         return storage.deleteGroup(lowerName);
     }
 
     @Override
     public CompletableFuture<Void> saveGroup(@NotNull Group group) {
         loadedGroups.put(group.getName(), group);
-        cache.invalidateAll(); // Group changes affect users
+        // Targeted invalidation: only invalidate users in this group
+        cacheInvalidator.invalidateGroup(group.getName());
         return storage.saveGroup(group);
     }
 
@@ -134,15 +138,20 @@ public final class GroupManagerImpl implements GroupManager {
      */
     public int cleanupExpired() {
         int total = 0;
+        List<String> affectedGroups = new ArrayList<>();
         for (Group group : loadedGroups.values()) {
             int removed = group.cleanupExpired();
             if (removed > 0) {
                 total += removed;
-                storage.saveGroup(group);
+                affectedGroups.add(group.getName());
+                storage.saveGroup(group).exceptionally(e -> {
+                    Logger.severe("Failed to save group after expired permission cleanup: " + group.getName(), e);
+                    return null;
+                });
             }
         }
-        if (total > 0) {
-            cache.invalidateAll();
+        if (!affectedGroups.isEmpty()) {
+            cacheInvalidator.invalidateGroups(affectedGroups);
         }
         return total;
     }

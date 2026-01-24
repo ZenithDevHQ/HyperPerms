@@ -194,21 +194,21 @@ public final class ChatAPI {
     
     private static void updateCache(UUID uuid, @Nullable String prefix,
                                     @Nullable String suffix, @Nullable String group) {
-        CachedData existing = cache.get(uuid);
-        if (existing != null && !existing.isExpired()) {
-            // Merge with existing - prevents partial cache entries from overwriting full ones
-            cache.put(uuid, new CachedData(
-                prefix != null ? prefix : existing.prefix,
-                suffix != null ? suffix : existing.suffix,
-                group != null ? group : existing.primaryGroup
-            ));
-        } else {
-            // Only create new entry if we have at least prefix OR suffix
-            // Prevents caching empty data that would cause prefix/suffix to be empty
-            if (prefix != null || suffix != null) {
-                cache.put(uuid, new CachedData(prefix, suffix, group));
+        // Use compute() for atomic read-merge-write to prevent race with invalidate()
+        cache.compute(uuid, (key, existing) -> {
+            if (existing != null && !existing.isExpired()) {
+                return new CachedData(
+                    prefix != null ? prefix : existing.prefix,
+                    suffix != null ? suffix : existing.suffix,
+                    group != null ? group : existing.primaryGroup
+                );
+            } else {
+                if (prefix != null || suffix != null) {
+                    return new CachedData(prefix, suffix, group);
+                }
+                return null; // Don't cache empty data
             }
-        }
+        });
     }
     
     private static class CachedData {

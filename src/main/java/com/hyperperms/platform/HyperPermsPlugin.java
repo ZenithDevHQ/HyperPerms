@@ -247,8 +247,11 @@ public class HyperPermsPlugin extends JavaPlugin {
             // Save new users to persist their default group assignment
             if (isNewUser) {
                 hyperPerms.getUserManager().saveUser(user).thenRun(() -> {
-                    Logger.debug("Created and saved new user %s with default group: %s", 
+                    Logger.debug("Created and saved new user %s with default group: %s",
                         username, user.getPrimaryGroup());
+                }).exceptionally(e -> {
+                    Logger.severe("Failed to save new user: " + username, e);
+                    return null;
                 });
             }
 
@@ -343,15 +346,12 @@ public class HyperPermsPlugin extends JavaPlugin {
      * @param event the game mode change event
      */
     private void onGameModeChange(ChangeGameModeEvent event) {
-        // This event is entity-scoped, need to get the entity reference
-        // For now, we'll invalidate all affected caches when game modes change
-        // A more targeted approach would require getting the entity from the event context
-
         Logger.debug("Game mode change detected: %s", event.getGameMode().name());
 
-        // The event doesn't directly provide the player, but since it's registered globally,
-        // we need to handle it through the ECS system. For simplicity, we track game mode
-        // changes through the adapter's polling mechanism.
+        // ECS events don't expose the target entity to global listeners directly.
+        // Invalidate all context caches so permissions re-resolve with updated game modes.
+        // Game mode changes are infrequent so full invalidation is acceptable.
+        hyperPerms.getCacheInvalidator().invalidateAll();
     }
 
     /**

@@ -48,7 +48,7 @@ public final class HyperPerms implements HyperPermsAPI {
 
     public static final String VERSION = BuildInfo.VERSION;
     
-    private static HyperPerms instance;
+    private static volatile HyperPerms instance;
 
     private final Path dataDirectory;
     private final java.util.logging.Logger parentLogger;
@@ -168,7 +168,7 @@ public final class HyperPerms implements HyperPermsAPI {
             eventBus = new EventBus();
 
             // Initialize managers
-            groupManager = new GroupManagerImpl(storage, cache);
+            groupManager = new GroupManagerImpl(storage, cacheInvalidator);
             trackManager = new TrackManagerImpl(storage);
             userManager = new UserManagerImpl(storage, cache, config.getDefaultGroup());
 

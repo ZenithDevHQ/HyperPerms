@@ -40,19 +40,16 @@ public final class UserManagerImpl implements UserManager {
 
         return storage.loadUser(uuid).thenApply(opt -> {
             if (opt.isPresent()) {
-                // Use compute to handle race condition with getOrCreateUser
                 User loaded = opt.get();
-                loadedUsers.compute(uuid, (key, existing) -> {
-                    // Only use loaded user if no user was created in the meantime,
-                    // OR if the existing user has default group (was just created)
+                // compute() is atomic - captures the result directly to avoid TOCTOU
+                User result = loadedUsers.compute(uuid, (key, existing) -> {
                     if (existing == null || existing.getPrimaryGroup().equals(defaultGroup)) {
                         return loaded;
                     }
-                    // Keep existing user if it has non-default data (was modified)
                     return existing;
                 });
                 cache.invalidate(uuid);
-                return Optional.of(loadedUsers.get(uuid));
+                return Optional.of(result);
             }
             return opt;
         });
@@ -144,7 +141,12 @@ public final class UserManagerImpl implements UserManager {
             if (removed > 0) {
                 total += removed;
                 cache.invalidate(user.getUuid());
-                storage.saveUser(user);
+                // Capture user reference to avoid issues if unloaded during save
+                final User userToSave = user;
+                storage.saveUser(userToSave).exceptionally(e -> {
+                    Logger.severe("Failed to save user after expired permission cleanup: " + userToSave.getUuid(), e);
+                    return null;
+                });
             }
         }
         return total;

@@ -44,22 +44,26 @@ public final class CacheInvalidator {
      * @param groups the groups the user belongs to
      */
     public void registerUserGroups(@NotNull UUID uuid, @NotNull Collection<String> groups) {
-        // Remove old mappings
-        Set<String> oldGroups = userGroups.get(uuid);
+        // Build new group set
+        Set<String> newGroups = ConcurrentHashMap.newKeySet();
+        newGroups.addAll(groups);
+
+        // Atomically replace user→groups mapping and get the old value
+        Set<String> oldGroups = userGroups.put(uuid, newGroups);
+
+        // Remove old group→user mappings that are no longer relevant
         if (oldGroups != null) {
             for (String group : oldGroups) {
-                Set<UUID> members = groupMembers.get(group);
-                if (members != null) {
-                    members.remove(uuid);
+                if (!newGroups.contains(group)) {
+                    Set<UUID> members = groupMembers.get(group);
+                    if (members != null) {
+                        members.remove(uuid);
+                    }
                 }
             }
         }
 
-        // Add new mappings
-        Set<String> newGroups = ConcurrentHashMap.newKeySet();
-        newGroups.addAll(groups);
-        userGroups.put(uuid, newGroups);
-
+        // Add new group→user mappings
         for (String group : groups) {
             groupMembers.computeIfAbsent(group, k -> ConcurrentHashMap.newKeySet()).add(uuid);
         }
@@ -99,16 +103,16 @@ public final class CacheInvalidator {
             return 0;
         }
 
-        int count = 0;
-        for (UUID uuid : members) {
+        // Take a snapshot to avoid issues with concurrent modification during iteration
+        List<UUID> snapshot = List.copyOf(members);
+        for (UUID uuid : snapshot) {
             cache.invalidate(uuid);
-            ChatAPI.invalidate(uuid); // Also invalidate chat prefix/suffix cache
-            TabListAPI.invalidate(uuid); // Also invalidate tab list cache
-            count++;
+            ChatAPI.invalidate(uuid);
+            TabListAPI.invalidate(uuid);
         }
 
-        Logger.debug("Invalidated cache for %d users in group '%s'", count, groupName);
-        return count;
+        Logger.debug("Invalidated cache for %d users in group '%s'", snapshot.size(), groupName);
+        return snapshot.size();
     }
 
     /**

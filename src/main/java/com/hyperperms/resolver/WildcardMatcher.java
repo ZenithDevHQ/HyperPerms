@@ -48,6 +48,10 @@ public final class WildcardMatcher {
         Objects.requireNonNull(permission, "permission cannot be null");
         Objects.requireNonNull(pattern, "pattern cannot be null");
 
+        if (permission.isEmpty() || pattern.isEmpty()) {
+            return permission.equals(pattern);
+        }
+
         // Exact match
         if (permission.equals(pattern)) {
             return true;
@@ -84,6 +88,10 @@ public final class WildcardMatcher {
     public static TriState check(@NotNull String permission, @NotNull Map<String, Boolean> values) {
         Objects.requireNonNull(permission, "permission cannot be null");
         Objects.requireNonNull(values, "values cannot be null");
+
+        if (permission.isEmpty()) {
+            return TriState.UNDEFINED;
+        }
 
         String lowerPerm = permission.toLowerCase();
 
@@ -141,6 +149,10 @@ public final class WildcardMatcher {
     public static MatchResult checkWithTrace(@NotNull String permission, @NotNull Map<String, Boolean> values) {
         Objects.requireNonNull(permission, "permission cannot be null");
         Objects.requireNonNull(values, "values cannot be null");
+
+        if (permission.isEmpty()) {
+            return new MatchResult(TriState.UNDEFINED, null, MatchType.NONE);
+        }
 
         String lowerPerm = permission.toLowerCase();
 
@@ -227,7 +239,13 @@ public final class WildcardMatcher {
      */
     @NotNull
     public static String[] generatePatterns(@NotNull String permission) {
+        if (permission.isEmpty()) {
+            return new String[]{ permission, "*" };
+        }
         String[] parts = permission.split("\\.");
+        if (parts.length == 0) {
+            return new String[]{ permission, "*" };
+        }
         String[] patterns = new String[parts.length + 1];
 
         patterns[0] = permission; // Exact match
