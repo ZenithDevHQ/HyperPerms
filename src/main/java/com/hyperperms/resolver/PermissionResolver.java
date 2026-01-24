@@ -1,6 +1,7 @@
 package com.hyperperms.resolver;
 
 import com.hyperperms.api.context.ContextSet;
+import com.hyperperms.registry.PermissionAliases;
 import com.hyperperms.registry.PermissionRegistry;
 import com.hyperperms.model.Group;
 import com.hyperperms.model.Node;
@@ -288,6 +289,9 @@ public final class PermissionResolver {
          * <p>
          * Also handles aliasing for plugin permissions where Hytale uses
          * full package paths (e.g., hyperhomes.* also grants com.hyperhomes.*)
+         * and for Hytale permissions where simplified paths need to map to
+         * actual Hytale permission paths (e.g., hytale.command.gamemode ->
+         * hytale.command.player.gamemode).
          *
          * @param registry the permission registry to use for wildcard expansion
          * @return set of all granted permissions including wildcard expansions
@@ -296,119 +300,33 @@ public final class PermissionResolver {
         public Set<String> getExpandedPermissions(@NotNull PermissionRegistry registry) {
             Set<String> granted = getGrantedPermissions();
             Set<String> expanded = new HashSet<>(granted);
+            PermissionAliases aliases = PermissionAliases.getInstance();
 
             for (String perm : granted) {
+                // Expand aliases for this permission (simplified -> actual Hytale paths)
+                Set<String> aliasExpanded = aliases.expand(perm);
+                expanded.addAll(aliasExpanded);
+
                 // Check if this is a wildcard permission
                 if (perm.endsWith(".*") || perm.equals("*")) {
                     // Expand the wildcard using the registry
                     Set<String> matching = registry.getMatchingPermissions(perm);
                     expanded.addAll(matching);
 
-                    // Handle aliasing for plugin permissions
-                    // Hytale uses full package paths like "com.hyperhomes.hyperhomes.command.homes"
-                    // So "hyperhomes.*" should also grant "com.hyperhomes.hyperhomes.*" permissions
-                    Set<String> aliasedWildcards = getAliasedWildcards(perm);
-                    for (String aliasedWildcard : aliasedWildcards) {
-                        Set<String> aliasedMatching = registry.getMatchingPermissions(aliasedWildcard);
-                        expanded.addAll(aliasedMatching);
-                        // Add the wildcard itself so Hytale's wildcard check finds it
-                        expanded.add(aliasedWildcard);
+                    // Also expand aliases for wildcard patterns
+                    // e.g., hytale.command.gamemode.* -> all hytale.command.player.gamemode.* perms
+                    Set<String> wildcardAliases = aliases.getActualPermissions(perm);
+                    for (String aliasedPerm : wildcardAliases) {
+                        expanded.add(aliasedPerm);
+                        // If the alias is also a pattern, expand it
+                        if (aliasedPerm.endsWith(".*")) {
+                            expanded.addAll(registry.getMatchingPermissions(aliasedPerm));
+                        }
                     }
-                } else {
-                    // Non-wildcard permission - also add aliased versions if applicable
-                    Set<String> aliased = getAliasedPermissions(perm);
-                    expanded.addAll(aliased);
                 }
             }
 
             return Collections.unmodifiableSet(expanded);
-        }
-
-        /**
-         * Gets all aliased wildcards for a plugin permission.
-         * Returns multiple wildcards at different levels for Hytale's hierarchical checking.
-         * <p>
-         * Hytale checks wildcards at EVERY level:
-         * - com.*
-         * - com.hyperhomes.*
-         * - com.hyperhomes.hyperhomes.*
-         * - com.hyperhomes.hyperhomes.command.*
-         */
-        @NotNull
-        private Set<String> getAliasedWildcards(String wildcard) {
-            Set<String> aliases = new HashSet<>();
-
-            // hyperhomes.* -> all levels of com.hyperhomes.hyperhomes.command.*
-            if (wildcard.equals("hyperhomes.*") || wildcard.equals("hyperhomes.command.*")) {
-                aliases.add("com.*");
-                aliases.add("com.hyperhomes.*");
-                aliases.add("com.hyperhomes.hyperhomes.*");
-                aliases.add("com.hyperhomes.hyperhomes.command.*");
-            }
-
-            // Add more plugin aliases as needed
-            return aliases;
-        }
-
-        /**
-         * Gets aliased permissions for non-wildcard plugin permissions.
-         * Maps simplified permissions to Hytale's full package path format.
-         * <p>
-         * HyperHomes command structure:
-         * - /homes -> com.hyperhomes.hyperhomes.command.homes
-         * - /homes gui -> com.hyperhomes.hyperhomes.command.homes.gui
-         * - /home -> com.hyperhomes.hyperhomes.command.home
-         * - /sethome -> com.hyperhomes.hyperhomes.command.sethome
-         * - /delhome -> com.hyperhomes.hyperhomes.command.delhome
-         */
-        @NotNull
-        private Set<String> getAliasedPermissions(String permission) {
-            Set<String> aliases = new HashSet<>();
-
-            if (!permission.startsWith("hyperhomes.") || permission.contains("*")) {
-                return aliases;
-            }
-
-            String suffix = permission.substring("hyperhomes.".length());
-
-            // Special shorthand mappings for user-friendly permissions
-            switch (suffix) {
-                case "gui":
-                    // hyperhomes.gui -> /homes gui subcommand
-                    aliases.add("com.hyperhomes.hyperhomes.command.homes.gui");
-                    break;
-                case "use":
-                    // hyperhomes.use -> grant access to main commands
-                    aliases.add("com.hyperhomes.hyperhomes.command.homes");
-                    aliases.add("com.hyperhomes.hyperhomes.command.home");
-                    aliases.add("com.hyperhomes.hyperhomes.command.homes.gui");
-                    break;
-                case "list":
-                    // hyperhomes.list -> /homes list or just /homes
-                    aliases.add("com.hyperhomes.hyperhomes.command.homes");
-                    aliases.add("com.hyperhomes.hyperhomes.command.homes.list");
-                    break;
-                case "set":
-                    // hyperhomes.set -> /sethome
-                    aliases.add("com.hyperhomes.hyperhomes.command.sethome");
-                    aliases.add("com.hyperhomes.hyperhomes.command.homes.set");
-                    break;
-                case "delete":
-                    // hyperhomes.delete -> /delhome
-                    aliases.add("com.hyperhomes.hyperhomes.command.delhome");
-                    aliases.add("com.hyperhomes.hyperhomes.command.homes.delete");
-                    break;
-                case "teleport":
-                    // hyperhomes.teleport -> /home (teleport to home)
-                    aliases.add("com.hyperhomes.hyperhomes.command.home");
-                    break;
-                default:
-                    // Default: hyperhomes.X -> com.hyperhomes.hyperhomes.command.X
-                    aliases.add("com.hyperhomes.hyperhomes.command." + suffix);
-                    break;
-            }
-
-            return aliases;
         }
 
         /**
