@@ -58,7 +58,7 @@ public final class PermissionAliases {
     private void registerAllAliases() {
         // ==================== Legacy System Command Format ====================
         // Format: hytale.system.command.* → hytale.command.* (used by some older configs)
-        alias("hytale.system.command.gamemode", "hytale.command.player.gamemode", "hytale.command.gamemode");
+        alias("hytale.system.command.gamemode", "hytale.command.player.gamemode", "hytale.command.gamemode", "hytale.command.gamemode.self");
         alias("hytale.system.command.give", "hytale.command.player.inventory.give", "hytale.command.give");
         alias("hytale.system.command.kick", "hytale.command.server.kick", "hytale.command.kick");
         alias("hytale.system.command.ban", "hytale.command.server.ban", "hytale.command.ban");
@@ -98,14 +98,14 @@ public final class PermissionAliases {
         alias("hytale.editor.selection.modify", "hytale.editor.selection.modify");
 
         // ==================== Player Commands ====================
-        // gamemode
-        alias("hytale.command.gamemode", "hytale.command.player.gamemode");
+        // gamemode - Hytale checks for hytale.command.gamemode.self
+        alias("hytale.command.gamemode", "hytale.command.player.gamemode", "hytale.command.gamemode.self");
         alias("hytale.command.gamemode.self", "hytale.command.player.gamemode");
         alias("hytale.command.gamemode.others", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.survival", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.creative", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.adventure", "hytale.command.player.gamemode");
-        alias("hytale.command.gamemode.spectator", "hytale.command.player.gamemode");
+        alias("hytale.command.gamemode.survival", "hytale.command.player.gamemode", "hytale.command.gamemode.self");
+        alias("hytale.command.gamemode.creative", "hytale.command.player.gamemode", "hytale.command.gamemode.self");
+        alias("hytale.command.gamemode.adventure", "hytale.command.player.gamemode", "hytale.command.gamemode.self");
+        alias("hytale.command.gamemode.spectator", "hytale.command.player.gamemode", "hytale.command.gamemode.self");
 
         // give / inventory
         alias("hytale.command.give", "hytale.command.player.inventory.give");
