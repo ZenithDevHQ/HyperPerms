@@ -3,11 +3,11 @@
     "default": {
       "permissions": [
         "hyperperms.command.check.self",
-        "hytale.system.command.help",
-        "hytale.system.command.whereami",
-        "hytale.system.command.whoami",
-        "hytale.system.command.emote",
-        "hytale.system.command.unstuck"
+        "hytale.command.utility.help",
+        "hytale.command.player.whereami",
+        "hytale.command.player.whoami",
+        "hytale.command.emote",
+        "hytale.command.player.unstuck"
       ],
       "weight": 0,
       "prefix": "",
@@ -16,8 +16,8 @@
     "member": {
       "parents": ["default"],
       "permissions": [
-        "hytale.system.command.spawn.teleport",
-        "hytale.system.command.hub"
+        "hytale.command.world.spawnblock",
+        "hytale.command.server.hub"
       ],
       "weight": 10,
       "prefix": "",
@@ -26,8 +26,8 @@
     "builder": {
       "parents": ["member"],
       "permissions": [
-        "hytale.system.command.gamemode",
-        "hytale.system.command.tp.self",
+        "hytale.command.player.gamemode",
+        "hytale.command.player.teleport",
         "hytale.editor.builderTools",
         "hytale.editor.brush.use",
         "hytale.editor.selection.use",
@@ -45,11 +45,10 @@
       "permissions": [
         "hyperperms.command.user.info",
         "hyperperms.command.check.others",
-        "hytale.system.command.kick",
-        "hytale.system.command.tp.others",
-        "hytale.system.command.inventory.see",
-        "hytale.system.command.who",
-        "hytale.system.command.whitelist.list"
+        "hytale.command.server.kick",
+        "hytale.command.player.inventory.see",
+        "hytale.command.server.who",
+        "hytale.command.server.whitelist.list"
       ],
       "weight": 50,
       "prefix": "&b[Mod] ",
@@ -59,17 +58,18 @@
       "parents": ["moderator"],
       "permissions": [
         "hyperperms.command.*",
-        "hytale.system.command.ban",
-        "hytale.system.command.unban",
-        "hytale.system.command.whitelist.*",
-        "hytale.system.command.give.*",
-        "hytale.system.command.kill.*",
-        "hytale.system.command.damage",
-        "hytale.system.command.time.*",
-        "hytale.system.command.weather.*",
-        "hytale.system.command.spawn.set",
-        "hytale.system.command.maxplayers",
-        "hytale.system.command.backup",
+        "hytale.command.server.ban",
+        "hytale.command.server.unban",
+        "hytale.command.server.whitelist.*",
+        "hytale.command.player.inventory.give",
+        "hytale.command.player.inventory.givearmor",
+        "hytale.command.player.kill",
+        "hytale.command.player.damage",
+        "hytale.command.world.time.*",
+        "hytale.command.world.weather.*",
+        "hytale.command.world.spawnblock",
+        "hytale.command.server.maxplayers",
+        "hytale.command.utility.backup",
         "hytale.editor.*"
       ],
       "weight": 90,

@@ -23,3 +23,7 @@ CLAUDE.md
 .serena/
 .playwright-mcp/
 nul
+
+gradle/wrapper/gradle-wrapper.jar
+
+gradlew
