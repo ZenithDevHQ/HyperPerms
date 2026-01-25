@@ -18,6 +18,7 @@ import com.hyperperms.context.calculators.ServerContextCalculator;
 import com.hyperperms.context.calculators.TimeContextCalculator;
 import com.hyperperms.context.calculators.WorldContextCalculator;
 import com.hyperperms.integration.FactionIntegration;
+import com.hyperperms.integration.VaultUnlockedIntegration;
 import com.hyperperms.integration.WerChatIntegration;
 import com.hyperperms.update.UpdateChecker;
 import com.hyperperms.registry.PermissionRegistry;
@@ -226,6 +227,11 @@ public final class HyperPerms implements HyperPermsAPI {
             werchatIntegration.setChannelFormat(config.getWerChatChannelFormat());
             chatManager.setWerChatIntegration(werchatIntegration);
 
+            // Initialize VaultUnlocked integration (soft dependency)
+            if (config.isVaultIntegrationEnabled()) {
+                VaultUnlockedIntegration.init(this);
+            }
+
             // Initialize web editor service
             webEditorService = new com.hyperperms.web.WebEditorService(this);
 
@@ -284,6 +290,9 @@ public final class HyperPerms implements HyperPermsAPI {
         }
 
         Logger.info("Disabling HyperPerms...");
+
+        // Shutdown VaultUnlocked integration
+        VaultUnlockedIntegration.shutdown();
 
         // Stop backup manager
         if (backupManager != null) {

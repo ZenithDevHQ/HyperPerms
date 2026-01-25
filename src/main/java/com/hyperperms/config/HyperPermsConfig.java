@@ -176,6 +176,11 @@ public final class HyperPermsConfig {
         factions.addProperty("prefixWithRankFormat", "&7[&b%s&7|&e%r&7] ");
         root.add("factions", factions);
 
+        // VaultUnlocked integration settings
+        JsonObject vault = new JsonObject();
+        vault.addProperty("enabled", true);
+        root.add("vault", vault);
+
         return root;
     }
 
@@ -505,6 +510,17 @@ public final class HyperPermsConfig {
      */
     public String getWerChatChannelFormat() {
         return getNestedString("werchat", "channelFormat", "%s");
+    }
+
+    // ==================== VaultUnlocked Integration Settings ====================
+
+    /**
+     * Checks if VaultUnlocked integration is enabled.
+     *
+     * @return true if VaultUnlocked integration is enabled
+     */
+    public boolean isVaultIntegrationEnabled() {
+        return getNestedBoolean("vault", "enabled", true);
     }
 
     // ==================== Update Check Settings ====================

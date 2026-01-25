@@ -42,6 +42,9 @@ dependencies {
     // Null safety annotations
     compileOnly 'org.jetbrains:annotations:24.1.0'
 
+    // VaultUnlocked API (soft dependency - compileOnly)
+    compileOnly files('libs/VaultUnlocked-Hytale-2.18.3.jar')
+
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
