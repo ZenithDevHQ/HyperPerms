@@ -818,26 +818,58 @@ public final class PermissionAliases {
             "hyperperms.chat.socialspy");
 
         // ==================== HyperHomes Plugin ====================
+        // Core command permissions (these are what HyperHomes actually checks)
         alias("hyperhomes.homes", "com.hyperhomes.hyperhomes.command.homes");
         alias("hyperhomes.home", "com.hyperhomes.hyperhomes.command.home");
         alias("hyperhomes.sethome", "com.hyperhomes.hyperhomes.command.sethome");
         alias("hyperhomes.delhome", "com.hyperhomes.hyperhomes.command.delhome");
         alias("hyperhomes.gui", "com.hyperhomes.hyperhomes.command.homes.gui");
+
+        // hyperhomes.use grants access to /home and /homes commands
         alias("hyperhomes.use",
+            "hyperhomes.home",
+            "hyperhomes.homes",
+            "hyperhomes.gui",
             "com.hyperhomes.hyperhomes.command.homes",
             "com.hyperhomes.hyperhomes.command.home",
             "com.hyperhomes.hyperhomes.command.homes.gui");
         alias("hyperhomes.list",
+            "hyperhomes.homes",
             "com.hyperhomes.hyperhomes.command.homes",
             "com.hyperhomes.hyperhomes.command.homes.list");
+
+        // Aliases for backwards compatibility (hyperhomes.set -> hyperhomes.sethome)
         alias("hyperhomes.set",
+            "hyperhomes.sethome",
             "com.hyperhomes.hyperhomes.command.sethome",
             "com.hyperhomes.hyperhomes.command.homes.set");
         alias("hyperhomes.delete",
+            "hyperhomes.delhome",
             "com.hyperhomes.hyperhomes.command.delhome",
             "com.hyperhomes.hyperhomes.command.homes.delete");
-        alias("hyperhomes.teleport", "com.hyperhomes.hyperhomes.command.home");
+        alias("hyperhomes.teleport",
+            "hyperhomes.home",
+            "com.hyperhomes.hyperhomes.command.home");
+
+        // Wildcard expansion
         aliasWildcard("hyperhomes.*",
+            "hyperhomes.use",
+            "hyperhomes.sethome",
+            "hyperhomes.delhome",
+            "hyperhomes.home",
+            "hyperhomes.homes",
+            "hyperhomes.gui",
+            "hyperhomes.list",
+            "hyperhomes.share",
+            "hyperhomes.teleport",
+            "hyperhomes.unlimited",
+            "hyperhomes.bypass.cooldown",
+            "hyperhomes.bypass.warmup",
+            "hyperhomes.admin",
+            "hyperhomes.admin.reload",
+            "hyperhomes.admin.update",
+            "hyperhomes.admin.migrate",
+            "hyperhomes.admin.teleport.others",
             "com.hyperhomes.hyperhomes.command.homes",
             "com.hyperhomes.hyperhomes.command.home",
             "com.hyperhomes.hyperhomes.command.sethome",
@@ -883,6 +915,178 @@ public final class PermissionAliases {
             "com.hyperwarps.hyperwarps.command.tpcancel",
             "com.hyperwarps.hyperwarps.command.tptoggle",
             "com.hyperwarps.hyperwarps.command.back");
+
+        // ==================== HyperFactions Plugin ====================
+        // Core command permissions (these are what HyperFactions actually checks)
+        alias("hyperfactions.faction", "com.hyperfactions.hyperfactions.command.faction");
+        alias("hyperfactions.f", "com.hyperfactions.hyperfactions.command.f");
+
+        // hyperfactions.use grants access to /f and /faction commands
+        alias("hyperfactions.use",
+            "hyperfactions.faction",
+            "hyperfactions.f",
+            "com.hyperfactions.hyperfactions.command.faction",
+            "com.hyperfactions.hyperfactions.command.f");
+
+        // Core faction management
+        alias("hyperfactions.create",
+            "com.hyperfactions.hyperfactions.command.faction.create",
+            "com.hyperfactions.hyperfactions.command.f.create");
+        alias("hyperfactions.invite",
+            "com.hyperfactions.hyperfactions.command.faction.invite",
+            "com.hyperfactions.hyperfactions.command.f.invite");
+        alias("hyperfactions.kick",
+            "com.hyperfactions.hyperfactions.command.faction.kick",
+            "com.hyperfactions.hyperfactions.command.f.kick");
+        alias("hyperfactions.disband",
+            "com.hyperfactions.hyperfactions.command.faction.disband",
+            "com.hyperfactions.hyperfactions.command.f.disband");
+        alias("hyperfactions.promote",
+            "com.hyperfactions.hyperfactions.command.faction.promote",
+            "com.hyperfactions.hyperfactions.command.f.promote");
+        alias("hyperfactions.demote",
+            "com.hyperfactions.hyperfactions.command.faction.demote",
+            "com.hyperfactions.hyperfactions.command.f.demote");
+        alias("hyperfactions.transfer",
+            "com.hyperfactions.hyperfactions.command.faction.transfer",
+            "com.hyperfactions.hyperfactions.command.f.transfer");
+
+        // Territory management
+        alias("hyperfactions.claim",
+            "com.hyperfactions.hyperfactions.command.faction.claim",
+            "com.hyperfactions.hyperfactions.command.f.claim");
+        alias("hyperfactions.unclaim",
+            "com.hyperfactions.hyperfactions.command.faction.unclaim",
+            "com.hyperfactions.hyperfactions.command.f.unclaim");
+        alias("hyperfactions.overclaim",
+            "com.hyperfactions.hyperfactions.command.faction.overclaim",
+            "com.hyperfactions.hyperfactions.command.f.overclaim");
+        alias("hyperfactions.map",
+            "com.hyperfactions.hyperfactions.command.faction.map",
+            "com.hyperfactions.hyperfactions.command.f.map");
+
+        // Home management
+        alias("hyperfactions.home",
+            "com.hyperfactions.hyperfactions.command.faction.home",
+            "com.hyperfactions.hyperfactions.command.f.home");
+        alias("hyperfactions.sethome",
+            "com.hyperfactions.hyperfactions.command.faction.sethome",
+            "com.hyperfactions.hyperfactions.command.f.sethome");
+
+        // Faction settings
+        alias("hyperfactions.rename",
+            "com.hyperfactions.hyperfactions.command.faction.rename",
+            "com.hyperfactions.hyperfactions.command.f.rename");
+        alias("hyperfactions.desc",
+            "com.hyperfactions.hyperfactions.command.faction.desc",
+            "com.hyperfactions.hyperfactions.command.f.desc");
+        alias("hyperfactions.color",
+            "com.hyperfactions.hyperfactions.command.faction.color",
+            "com.hyperfactions.hyperfactions.command.f.color");
+        alias("hyperfactions.open",
+            "com.hyperfactions.hyperfactions.command.faction.open",
+            "com.hyperfactions.hyperfactions.command.f.open");
+        alias("hyperfactions.close",
+            "com.hyperfactions.hyperfactions.command.faction.close",
+            "com.hyperfactions.hyperfactions.command.f.close");
+
+        // Relations
+        alias("hyperfactions.ally",
+            "com.hyperfactions.hyperfactions.command.faction.ally",
+            "com.hyperfactions.hyperfactions.command.f.ally");
+        alias("hyperfactions.enemy",
+            "com.hyperfactions.hyperfactions.command.faction.enemy",
+            "com.hyperfactions.hyperfactions.command.f.enemy");
+        alias("hyperfactions.neutral",
+            "com.hyperfactions.hyperfactions.command.faction.neutral",
+            "com.hyperfactions.hyperfactions.command.f.neutral");
+
+        // Chat
+        alias("hyperfactions.chat",
+            "com.hyperfactions.hyperfactions.command.faction.chat",
+            "com.hyperfactions.hyperfactions.command.f.chat");
+        alias("hyperfactions.chat.faction",
+            "com.hyperfactions.hyperfactions.command.faction.chat.faction",
+            "com.hyperfactions.hyperfactions.command.f.chat.faction");
+        alias("hyperfactions.chat.ally",
+            "com.hyperfactions.hyperfactions.command.faction.chat.ally",
+            "com.hyperfactions.hyperfactions.command.f.chat.ally");
+
+        // Admin permissions
+        alias("hyperfactions.admin",
+            "hyperfactions.admin.reload",
+            "hyperfactions.admin.bypass",
+            "hyperfactions.admin.zones",
+            "hyperfactions.admin.forcejoin",
+            "hyperfactions.admin.forceleave",
+            "hyperfactions.admin.forcedisband",
+            "hyperfactions.admin.setpower",
+            "hyperfactions.admin.setmaxpower");
+        aliasWildcard("hyperfactions.admin.*",
+            "hyperfactions.admin.reload",
+            "hyperfactions.admin.bypass",
+            "hyperfactions.admin.zones",
+            "hyperfactions.admin.forcejoin",
+            "hyperfactions.admin.forceleave",
+            "hyperfactions.admin.forcedisband",
+            "hyperfactions.admin.setpower",
+            "hyperfactions.admin.setmaxpower");
+
+        // Bypass permissions
+        aliasWildcard("hyperfactions.bypass.*",
+            "hyperfactions.bypass.warmup",
+            "hyperfactions.bypass.cooldown",
+            "hyperfactions.bypass.protection",
+            "hyperfactions.bypass.build",
+            "hyperfactions.bypass.interact",
+            "hyperfactions.bypass.container",
+            "hyperfactions.bypass.damage");
+
+        // Wildcard expansion
+        aliasWildcard("hyperfactions.*",
+            "hyperfactions.use",
+            "hyperfactions.create",
+            "hyperfactions.invite",
+            "hyperfactions.kick",
+            "hyperfactions.disband",
+            "hyperfactions.promote",
+            "hyperfactions.demote",
+            "hyperfactions.transfer",
+            "hyperfactions.claim",
+            "hyperfactions.unclaim",
+            "hyperfactions.overclaim",
+            "hyperfactions.map",
+            "hyperfactions.home",
+            "hyperfactions.sethome",
+            "hyperfactions.rename",
+            "hyperfactions.desc",
+            "hyperfactions.color",
+            "hyperfactions.open",
+            "hyperfactions.close",
+            "hyperfactions.ally",
+            "hyperfactions.enemy",
+            "hyperfactions.neutral",
+            "hyperfactions.chat",
+            "hyperfactions.chat.faction",
+            "hyperfactions.chat.ally",
+            "hyperfactions.admin",
+            "hyperfactions.admin.reload",
+            "hyperfactions.admin.bypass",
+            "hyperfactions.admin.zones",
+            "hyperfactions.admin.forcejoin",
+            "hyperfactions.admin.forceleave",
+            "hyperfactions.admin.forcedisband",
+            "hyperfactions.admin.setpower",
+            "hyperfactions.admin.setmaxpower",
+            "hyperfactions.bypass.warmup",
+            "hyperfactions.bypass.cooldown",
+            "hyperfactions.bypass.protection",
+            "hyperfactions.bypass.build",
+            "hyperfactions.bypass.interact",
+            "hyperfactions.bypass.container",
+            "hyperfactions.bypass.damage",
+            "com.hyperfactions.hyperfactions.command.faction",
+            "com.hyperfactions.hyperfactions.command.f");
     }
 
     /**

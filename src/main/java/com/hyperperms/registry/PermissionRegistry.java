@@ -392,6 +392,9 @@ public final class PermissionRegistry {
         // Register HyperWarps permissions for wildcard expansion
         registerHyperWarpsPermissions();
 
+        // Register HyperFactions permissions for wildcard expansion
+        registerHyperFactionsPermissions();
+
         Logger.info("Registered %d built-in permissions", size());
     }
 
@@ -848,5 +851,88 @@ public final class PermissionRegistry {
         register("com.hyperwarps.hyperwarps.command.back", "Use /back command", "hyperwarps", "HyperWarps");
 
         Logger.debug("Registered HyperWarps permissions for wildcard expansion");
+    }
+
+    /**
+     * Registers known HyperFactions permissions for wildcard expansion.
+     * <p>
+     * IMPORTANT: Hytale uses full package path for plugin commands:
+     * "com.hyperfactions.hyperfactions.command.faction" instead of "hyperfactions.faction"
+     */
+    private void registerHyperFactionsPermissions() {
+        // ==================== Standard HyperFactions permissions ====================
+        // Wildcards
+        register("hyperfactions.*", "Full access to all HyperFactions features", "hyperfactions", "HyperFactions");
+
+        // Core permissions
+        register("hyperfactions.use", "Basic access to HyperFactions", "hyperfactions", "HyperFactions");
+        register("hyperfactions.create", "Create a new faction", "hyperfactions", "HyperFactions");
+        register("hyperfactions.invite", "Invite players to faction", "hyperfactions", "HyperFactions");
+        register("hyperfactions.kick", "Kick members from faction", "hyperfactions", "HyperFactions");
+        register("hyperfactions.disband", "Dissolve faction", "hyperfactions", "HyperFactions");
+        register("hyperfactions.promote", "Promote faction members", "hyperfactions", "HyperFactions");
+        register("hyperfactions.demote", "Demote faction members", "hyperfactions", "HyperFactions");
+        register("hyperfactions.transfer", "Transfer faction leadership", "hyperfactions", "HyperFactions");
+
+        // Territory permissions
+        register("hyperfactions.claim", "Claim territory", "hyperfactions", "HyperFactions");
+        register("hyperfactions.unclaim", "Unclaim territory", "hyperfactions", "HyperFactions");
+        register("hyperfactions.overclaim", "Overclaim enemy territory", "hyperfactions", "HyperFactions");
+        register("hyperfactions.map", "View territory map", "hyperfactions", "HyperFactions");
+
+        // Home permissions
+        register("hyperfactions.home", "Teleport to faction home", "hyperfactions", "HyperFactions");
+        register("hyperfactions.sethome", "Set faction home", "hyperfactions", "HyperFactions");
+
+        // Management permissions
+        register("hyperfactions.rename", "Rename faction", "hyperfactions", "HyperFactions");
+        register("hyperfactions.desc", "Set faction description", "hyperfactions", "HyperFactions");
+        register("hyperfactions.color", "Set faction color", "hyperfactions", "HyperFactions");
+        register("hyperfactions.open", "Open faction to public", "hyperfactions", "HyperFactions");
+        register("hyperfactions.close", "Close faction to public", "hyperfactions", "HyperFactions");
+
+        // Relation permissions
+        register("hyperfactions.ally", "Manage alliances", "hyperfactions", "HyperFactions");
+        register("hyperfactions.enemy", "Declare enemies", "hyperfactions", "HyperFactions");
+        register("hyperfactions.neutral", "Set neutral relations", "hyperfactions", "HyperFactions");
+
+        // Chat permissions
+        register("hyperfactions.chat", "Access faction chat", "hyperfactions", "HyperFactions");
+        register("hyperfactions.chat.faction", "Use faction chat", "hyperfactions", "HyperFactions");
+        register("hyperfactions.chat.ally", "Use alliance chat", "hyperfactions", "HyperFactions");
+
+        // Admin permissions
+        register("hyperfactions.admin", "Full admin access", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.*", "All admin permissions", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.reload", "Reload configuration", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.bypass", "Toggle bypass mode", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.zones", "Manage zones", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.forcejoin", "Force join a faction", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.forceleave", "Force leave a faction", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.forcedisband", "Force disband a faction", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.setpower", "Set faction power", "hyperfactions", "HyperFactions");
+        register("hyperfactions.admin.setmaxpower", "Set faction max power", "hyperfactions", "HyperFactions");
+
+        // Bypass permissions
+        register("hyperfactions.bypass.*", "Bypass all protections", "hyperfactions", "HyperFactions");
+        register("hyperfactions.bypass.warmup", "Skip teleport warmup", "hyperfactions", "HyperFactions");
+        register("hyperfactions.bypass.cooldown", "Skip teleport cooldown", "hyperfactions", "HyperFactions");
+        register("hyperfactions.bypass.protection", "Bypass claim protection", "hyperfactions", "HyperFactions");
+        register("hyperfactions.bypass.build", "Bypass build protection", "hyperfactions", "HyperFactions");
+        register("hyperfactions.bypass.interact", "Bypass interact protection", "hyperfactions", "HyperFactions");
+        register("hyperfactions.bypass.container", "Bypass container protection", "hyperfactions", "HyperFactions");
+        register("hyperfactions.bypass.damage", "Bypass damage protection", "hyperfactions", "HyperFactions");
+
+        // ==================== Hytale command path format ====================
+        // Hytale uses full Java package path for plugin commands
+        register("com.hyperfactions.*", "All HyperFactions package permissions", "hyperfactions", "HyperFactions");
+        register("com.hyperfactions.hyperfactions.*", "All HyperFactions commands", "hyperfactions", "HyperFactions");
+        register("com.hyperfactions.hyperfactions.command.*", "All HyperFactions command permissions", "hyperfactions", "HyperFactions");
+        register("com.hyperfactions.hyperfactions.command.faction", "Use /faction command", "hyperfactions", "HyperFactions");
+        register("com.hyperfactions.hyperfactions.command.faction.*", "All /faction subcommands", "hyperfactions", "HyperFactions");
+        register("com.hyperfactions.hyperfactions.command.f", "Use /f alias", "hyperfactions", "HyperFactions");
+        register("com.hyperfactions.hyperfactions.command.f.*", "All /f subcommands", "hyperfactions", "HyperFactions");
+
+        Logger.debug("Registered HyperFactions permissions for wildcard expansion");
     }
 }
