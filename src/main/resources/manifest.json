@@ -7,6 +7,6 @@
   "Main": "com.hyperperms.platform.HyperPermsPlugin",
   "ServerVersion": "*",
   "OptionalDependencies": {
-    "VaultUnlocked": "*"
+    "TheNewEconomy:VaultUnlocked": "*"
   }
 }
