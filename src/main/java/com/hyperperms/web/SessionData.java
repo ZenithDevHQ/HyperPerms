@@ -22,17 +22,20 @@ public final class SessionData {
     private final List<UserDto> users;
     private final List<TrackDto> tracks;
     private final MetadataDto metadata;
+    private final List<PluginPermissions> installedPlugins;
 
     private SessionData(
             @NotNull List<GroupDto> groups,
             @NotNull List<UserDto> users,
             @NotNull List<TrackDto> tracks,
-            @NotNull MetadataDto metadata
+            @NotNull MetadataDto metadata,
+            @NotNull List<PluginPermissions> installedPlugins
     ) {
         this.groups = groups;
         this.users = users;
         this.tracks = tracks;
         this.metadata = metadata;
+        this.installedPlugins = installedPlugins;
     }
 
     /**
@@ -65,7 +68,11 @@ public final class SessionData {
                 playerCount
         );
 
-        return new SessionData(groups, users, tracks, metadata);
+        // Scan installed plugin permissions
+        PluginPermissionScanner scanner = new PluginPermissionScanner(hyperPerms);
+        List<PluginPermissions> installedPlugins = scanner.scanInstalledPlugins();
+
+        return new SessionData(groups, users, tracks, metadata, installedPlugins);
     }
 
     public List<GroupDto> getGroups() {
@@ -82,6 +89,10 @@ public final class SessionData {
 
     public MetadataDto getMetadata() {
         return metadata;
+    }
+
+    public List<PluginPermissions> getInstalledPlugins() {
+        return installedPlugins;
     }
 
     /**

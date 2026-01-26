@@ -3,7 +3,9 @@ package com.hyperperms.integration;
 import com.hyperperms.HyperPerms;
 import com.hyperperms.api.context.ContextSet;
 import com.hyperperms.manager.UserManagerImpl;
+import com.hyperperms.api.PermissionHolder.DataMutateResult;
 import com.hyperperms.model.Group;
+import com.hyperperms.model.Node;
 import com.hyperperms.model.User;
 import com.hyperperms.resolver.PermissionResolver;
 import com.hyperperms.resolver.WildcardMatcher;
@@ -107,7 +109,36 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
     @Override
     public boolean setPermission(@Nullable Context context, @NotNull Subject subject, @NotNull String permission, @NotNull TriState value) {
-        throw new UnsupportedOperationException("Permission modification through Vault is not yet supported. Use HyperPerms commands instead.");
+        if (subject.type() == SubjectType.GROUP) {
+            return groupSetPermission(context, subject.identifier(), permission, value);
+        }
+
+        UUID uuid = subject.asUUID();
+        if (uuid == null) {
+            return false;
+        }
+
+        UserManagerImpl userManager = (UserManagerImpl) hyperPerms.getUserManager();
+        User user = userManager.getUser(uuid);
+        if (user == null) {
+            user = userManager.getOrCreateUser(uuid);
+        }
+
+        ContextSet contexts = convertContext(context);
+
+        if (value == TriState.UNDEFINED) {
+            user.removeNode(permission);
+        } else {
+            Node node = Node.builder(permission)
+                .value(value == TriState.TRUE)
+                .contexts(contexts)
+                .build();
+            user.setNode(node);
+        }
+
+        userManager.saveUser(user).join();
+        hyperPerms.getCacheInvalidator().invalidateUser(uuid);
+        return true;
     }
 
     @Override
@@ -131,7 +162,63 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
     @Override
     public boolean copyPermissions(@Nullable Context context, @NotNull Subject source, @NotNull Subject target, boolean replace) {
-        throw new UnsupportedOperationException("Permission copying through Vault is not yet supported. Use HyperPerms commands instead.");
+        if (source.type() != target.type()) {
+            return false; // Can't copy between different subject types
+        }
+
+        if (source.type() == SubjectType.GROUP) {
+            Group fromGroup = hyperPerms.getGroupManager().getGroup(source.identifier());
+            Group toGroup = hyperPerms.getGroupManager().getGroup(target.identifier());
+            if (fromGroup == null || toGroup == null) {
+                return false;
+            }
+
+            if (replace) {
+                toGroup.clearNodes();
+            }
+
+            for (Node node : fromGroup.getNodes()) {
+                if (!node.isGroupNode()) {
+                    toGroup.addNode(node);
+                }
+            }
+
+            hyperPerms.getGroupManager().saveGroup(toGroup).join();
+            // Cache invalidation for groups is handled by GroupManagerImpl.saveGroup()
+            return true;
+        }
+
+        // Player to player
+        UUID fromUuid = source.asUUID();
+        UUID toUuid = target.asUUID();
+        if (fromUuid == null || toUuid == null) {
+            return false;
+        }
+
+        UserManagerImpl userManager = (UserManagerImpl) hyperPerms.getUserManager();
+        User fromUser = userManager.getUser(fromUuid);
+        User toUser = userManager.getUser(toUuid);
+
+        if (fromUser == null) {
+            return false;
+        }
+        if (toUser == null) {
+            toUser = userManager.getOrCreateUser(toUuid);
+        }
+
+        if (replace) {
+            toUser.clearNodes();
+        }
+
+        for (Node node : fromUser.getNodes()) {
+            if (!node.isGroupNode()) {
+                toUser.addNode(node);
+            }
+        }
+
+        userManager.saveUser(toUser).join();
+        hyperPerms.getCacheInvalidator().invalidateUser(toUuid);
+        return true;
     }
 
     @Override
@@ -199,7 +286,15 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
     @Override
     public boolean copyGroups(@Nullable Context context, @NotNull Subject source, @NotNull Subject target) {
-        throw new UnsupportedOperationException("Group copying through Vault is not yet supported. Use HyperPerms commands instead.");
+        String[] sourceGroups = getGroups(context, source);
+
+        for (String group : sourceGroups) {
+            if (!addGroup(context, target, group)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override
@@ -250,7 +345,24 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
     @Override
     public boolean addGroup(@Nullable Context context, @NotNull Subject subject, @NotNull String groupName) {
-        throw new UnsupportedOperationException("Group modification through Vault is not yet supported. Use HyperPerms commands instead.");
+        UUID uuid = subject.asUUID();
+        if (uuid == null) {
+            return false;
+        }
+
+        UserManagerImpl userManager = (UserManagerImpl) hyperPerms.getUserManager();
+        User user = userManager.getUser(uuid);
+        if (user == null) {
+            user = userManager.getOrCreateUser(uuid);
+        }
+
+        var result = user.addGroup(groupName);
+        if (result == DataMutateResult.SUCCESS) {
+            userManager.saveUser(user).join();
+            hyperPerms.getCacheInvalidator().invalidateUser(uuid);
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -261,7 +373,24 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
     @Override
     public boolean removeGroup(@Nullable Context context, @NotNull Subject subject, @NotNull String groupName) {
-        throw new UnsupportedOperationException("Group modification through Vault is not yet supported. Use HyperPerms commands instead.");
+        UUID uuid = subject.asUUID();
+        if (uuid == null) {
+            return false;
+        }
+
+        UserManagerImpl userManager = (UserManagerImpl) hyperPerms.getUserManager();
+        User user = userManager.getUser(uuid);
+        if (user == null) {
+            return false;
+        }
+
+        var result = user.removeGroup(groupName);
+        if (result == DataMutateResult.SUCCESS) {
+            userManager.saveUser(user).join();
+            hyperPerms.getCacheInvalidator().invalidateUser(uuid);
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -296,7 +425,26 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
     @Override
     public boolean groupSetPermission(@Nullable Context context, @NotNull String groupName, @NotNull String permission, @NotNull TriState value) {
-        throw new UnsupportedOperationException("Group permission modification through Vault is not yet supported. Use HyperPerms commands instead.");
+        Group group = hyperPerms.getGroupManager().getGroup(groupName);
+        if (group == null) {
+            return false;
+        }
+
+        ContextSet contexts = convertContext(context);
+
+        if (value == TriState.UNDEFINED) {
+            group.removeNode(permission);
+        } else {
+            Node node = Node.builder(permission)
+                .value(value == TriState.TRUE)
+                .contexts(contexts)
+                .build();
+            group.setNode(node);
+        }
+
+        hyperPerms.getGroupManager().saveGroup(group).join();
+        // Cache invalidation for groups is handled by GroupManagerImpl.saveGroup()
+        return true;
     }
 
     @Override
