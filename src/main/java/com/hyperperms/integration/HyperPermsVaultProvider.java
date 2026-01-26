@@ -9,6 +9,7 @@ import com.hyperperms.model.Node;
 import com.hyperperms.model.User;
 import com.hyperperms.resolver.PermissionResolver;
 import com.hyperperms.resolver.WildcardMatcher;
+import com.hyperperms.util.Logger;
 import net.milkbowl.vault2.helper.TriState;
 import net.milkbowl.vault2.helper.context.Context;
 import net.milkbowl.vault2.helper.subject.Subject;
@@ -59,8 +60,6 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
         return false;
     }
 
-    // ==================== Permission Checks ====================
-
     @Override
     @NotNull
     public TriState has(@Nullable Context context, @NotNull Subject subject, @NotNull String permission) {
@@ -72,6 +71,7 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
         // Get UUID from subject
         UUID uuid = subject.asUUID();
         if (uuid == null) {
+            Logger.debug("[Vault] Permission check for invalid subject (no UUID): %s", permission);
             return TriState.UNDEFINED;
         }
 
@@ -96,7 +96,9 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
         var resolved = resolver.resolve(user, contexts);
         WildcardMatcher.TriState result = resolved.check(permission);
 
-        return toVaultTriState(result);
+        TriState vaultResult = toVaultTriState(result);
+        Logger.debug("[Vault] Permission check: %s has %s = %s", uuid, permission, vaultResult);
+        return vaultResult;
     }
 
     @Override
@@ -104,8 +106,6 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
     public CompletableFuture<TriState> hasAsync(@Nullable Context context, @NotNull Subject subject, @NotNull String permission) {
         return CompletableFuture.supplyAsync(() -> has(context, subject, permission));
     }
-
-    // ==================== Permission Modification ====================
 
     @Override
     public boolean setPermission(@Nullable Context context, @NotNull Subject subject, @NotNull String permission, @NotNull TriState value) {
@@ -115,6 +115,7 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
         UUID uuid = subject.asUUID();
         if (uuid == null) {
+            Logger.debug("[Vault] Set permission failed: invalid subject (no UUID)");
             return false;
         }
 
@@ -128,12 +129,14 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
         if (value == TriState.UNDEFINED) {
             user.removeNode(permission);
+            Logger.debug("[Vault] Removed permission %s from user %s", permission, uuid);
         } else {
             Node node = Node.builder(permission)
                 .value(value == TriState.TRUE)
                 .contexts(contexts)
                 .build();
             user.setNode(node);
+            Logger.debug("[Vault] Set permission %s = %s for user %s", permission, value, uuid);
         }
 
         userManager.saveUser(user).join();
@@ -149,7 +152,9 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
     @Override
     public boolean setTransientPermission(@Nullable Context context, @NotNull Subject subject, @NotNull String permission, @NotNull TriState value) {
-        throw new UnsupportedOperationException("Transient permission modification through Vault is not yet supported. Use HyperPerms commands instead.");
+        // Transient permissions are not yet supported through Vault
+        // Return false to indicate the operation was not performed
+        return false;
     }
 
     @Override
@@ -347,6 +352,7 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
     public boolean addGroup(@Nullable Context context, @NotNull Subject subject, @NotNull String groupName) {
         UUID uuid = subject.asUUID();
         if (uuid == null) {
+            Logger.debug("[Vault] Add group failed: invalid subject (no UUID)");
             return false;
         }
 
@@ -360,8 +366,10 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
         if (result == DataMutateResult.SUCCESS) {
             userManager.saveUser(user).join();
             hyperPerms.getCacheInvalidator().invalidateUser(uuid);
+            Logger.debug("[Vault] Added user %s to group %s", uuid, groupName);
             return true;
         }
+        Logger.debug("[Vault] Add group %s for user %s failed: %s", groupName, uuid, result);
         return false;
     }
 
@@ -375,12 +383,14 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
     public boolean removeGroup(@Nullable Context context, @NotNull Subject subject, @NotNull String groupName) {
         UUID uuid = subject.asUUID();
         if (uuid == null) {
+            Logger.debug("[Vault] Remove group failed: invalid subject (no UUID)");
             return false;
         }
 
         UserManagerImpl userManager = (UserManagerImpl) hyperPerms.getUserManager();
         User user = userManager.getUser(uuid);
         if (user == null) {
+            Logger.debug("[Vault] Remove group failed: user %s not found", uuid);
             return false;
         }
 
@@ -388,8 +398,10 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
         if (result == DataMutateResult.SUCCESS) {
             userManager.saveUser(user).join();
             hyperPerms.getCacheInvalidator().invalidateUser(uuid);
+            Logger.debug("[Vault] Removed user %s from group %s", uuid, groupName);
             return true;
         }
+        Logger.debug("[Vault] Remove group %s for user %s failed: %s", groupName, uuid, result);
         return false;
     }
 
@@ -399,13 +411,12 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
         return CompletableFuture.supplyAsync(() -> removeGroup(context, subject, groupName));
     }
 
-    // ==================== Group Permission Checks ====================
-
     @Override
     @NotNull
     public TriState groupHas(@Nullable Context context, @NotNull String groupName, @NotNull String permission) {
         Group group = hyperPerms.getGroupManager().getGroup(groupName);
         if (group == null) {
+            Logger.debug("[Vault] Group permission check: group '%s' not found", groupName);
             return TriState.UNDEFINED;
         }
 
@@ -414,7 +425,9 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
         var resolved = resolver.resolveGroup(group, contexts);
         WildcardMatcher.TriState result = resolved.check(permission);
 
-        return toVaultTriState(result);
+        TriState vaultResult = toVaultTriState(result);
+        Logger.debug("[Vault] Group permission check: %s has %s = %s", groupName, permission, vaultResult);
+        return vaultResult;
     }
 
     @Override
@@ -427,6 +440,7 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
     public boolean groupSetPermission(@Nullable Context context, @NotNull String groupName, @NotNull String permission, @NotNull TriState value) {
         Group group = hyperPerms.getGroupManager().getGroup(groupName);
         if (group == null) {
+            Logger.debug("[Vault] Set group permission failed: group '%s' not found", groupName);
             return false;
         }
 
@@ -434,12 +448,14 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
         if (value == TriState.UNDEFINED) {
             group.removeNode(permission);
+            Logger.debug("[Vault] Removed permission %s from group %s", permission, groupName);
         } else {
             Node node = Node.builder(permission)
                 .value(value == TriState.TRUE)
                 .contexts(contexts)
                 .build();
             group.setNode(node);
+            Logger.debug("[Vault] Set permission %s = %s for group %s", permission, value, groupName);
         }
 
         hyperPerms.getGroupManager().saveGroup(group).join();
@@ -455,7 +471,9 @@ public class HyperPermsVaultProvider implements PermissionUnlocked {
 
     @Override
     public boolean groupSetTransientPermission(@Nullable Context context, @NotNull String groupName, @NotNull String permission, @NotNull TriState value) {
-        throw new UnsupportedOperationException("Transient group permission modification through Vault is not yet supported. Use HyperPerms commands instead.");
+        // Transient group permissions are not yet supported through Vault
+        // Return false to indicate the operation was not performed
+        return false;
     }
 
     @Override
