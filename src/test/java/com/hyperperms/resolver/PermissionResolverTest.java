@@ -8,6 +8,7 @@ import com.hyperperms.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -190,5 +191,102 @@ class PermissionResolverTest {
         assertTrue(resolver.hasPermission(user, "perm.a", ContextSet.empty()));
         assertTrue(resolver.hasPermission(user, "perm.b", ContextSet.empty()));
         assertTrue(resolver.hasPermission(user, "perm.c", ContextSet.empty()));
+    }
+
+    // ==================== P0 Specification Tests ====================
+
+    @Test
+    void testUserNegationOverridesGroupGrant() {
+        Group vip = createGroup("vip", 100);
+        vip.addNode(Node.of("fly.use"));
+
+        User user = new User(UUID.randomUUID(), "Steve");
+        user.addGroup("vip");
+        user.addNode(Node.builder("fly.use").denied().build()); // -fly.use
+
+        // User's explicit denial should override group's grant
+        assertFalse(resolver.hasPermission(user, "fly.use", ContextSet.empty()));
+    }
+
+    @Test
+    void testSpecificNegationWithWildcard() {
+        Group member = createGroup("member", 50);
+        member.addNode(Node.of("hytale.command.*"));
+
+        User user = new User(UUID.randomUUID(), "Steve");
+        user.addGroup("member");
+        user.addNode(Node.builder("hytale.command.emote").denied().build());
+
+        // Specific negation blocks emote
+        assertFalse(resolver.hasPermission(user, "hytale.command.emote", ContextSet.empty()));
+        // Wildcard still allows other commands
+        assertTrue(resolver.hasPermission(user, "hytale.command.spawn", ContextSet.empty()));
+        // Nested commands also allowed by .*
+        assertTrue(resolver.hasPermission(user, "hytale.command.home.set", ContextSet.empty()));
+    }
+
+    @Test
+    void testContextSpecificOverridesGlobal() {
+        Group group = createGroup("default", 0);
+        // Server-specific grant (contextual permissions override when context matches)
+        group.addNode(Node.builder("fly.use").server("lobby").build());
+
+        User user = new User(UUID.randomUUID(), "Test");
+        user.setPrimaryGroup("default");
+
+        ContextSet lobbyContext = ContextSet.of(Context.server("lobby"));
+        ContextSet survivalContext = ContextSet.of(Context.server("survival"));
+
+        assertTrue(resolver.hasPermission(user, "fly.use", lobbyContext));
+        assertFalse(resolver.hasPermission(user, "fly.use", survivalContext)); // No permission in survival
+    }
+
+    @Test
+    void testExpiredPermissionTreatedAsUndefined() {
+        Group group = createGroup("default", 0);
+        group.addNode(Node.of("chat.use")); // Group has chat
+
+        User user = new User(UUID.randomUUID(), "Test");
+        user.setPrimaryGroup("default");
+        // Add expired fly permission
+        user.addNode(Node.builder("fly.use")
+                .expiry(Instant.now().minusSeconds(3600)) // Expired 1 hour ago
+                .build());
+
+        // Expired permission should be undefined, fall through to group
+        assertFalse(resolver.hasPermission(user, "fly.use", ContextSet.empty()));
+        assertTrue(resolver.hasPermission(user, "chat.use", ContextSet.empty()));
+    }
+
+    @Test
+    void testDefaultGroupFallback() {
+        Group defaultGroup = createGroup("default", 0);
+        defaultGroup.addNode(Node.of("chat.use"));
+        defaultGroup.addNode(Node.of("help.use"));
+
+        User user = new User(UUID.randomUUID(), "NewPlayer");
+        user.setPrimaryGroup("default");
+        // New player has no direct permissions
+
+        // Should inherit from default group
+        assertTrue(resolver.hasPermission(user, "chat.use", ContextSet.empty()));
+        assertTrue(resolver.hasPermission(user, "help.use", ContextSet.empty()));
+        assertFalse(resolver.hasPermission(user, "fly.use", ContextSet.empty()));
+    }
+
+    @Test
+    void testWeightPriorityWithConflict() {
+        Group builder = createGroup("builder", 90);
+        builder.addNode(Node.builder("worldedit.use").denied().build()); // Deny
+
+        Group moderator = createGroup("moderator", 80);
+        moderator.addNode(Node.of("worldedit.use")); // Grant
+
+        User user = new User(UUID.randomUUID(), "Steve");
+        user.addGroup("builder");
+        user.addGroup("moderator");
+
+        // Builder (weight 90) should win over Moderator (weight 80)
+        assertFalse(resolver.hasPermission(user, "worldedit.use", ContextSet.empty()));
     }
 }

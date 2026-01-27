@@ -220,4 +220,32 @@ class WildcardMatcherTest {
         assertEquals(TriState.TRUE, WildcardMatcher.check("PLUGIN.COMMAND", perms));
         assertEquals(TriState.TRUE, WildcardMatcher.check("Plugin.Command", perms));
     }
+
+    // ==================== P0 Specification Tests ====================
+
+    @Test
+    void testWildcardWithSpecificNegation() {
+        // Scenario from spec: essentials.* + -essentials.god
+        Map<String, Boolean> perms = new HashMap<>();
+        perms.put("essentials.*", true);    // Grant all essentials
+        perms.put("-essentials.god", true); // But deny god mode
+
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.home", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.spawn", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.fly", perms));
+        assertEquals(TriState.FALSE, WildcardMatcher.check("essentials.god", perms)); // Denied
+    }
+
+    @Test
+    void testNestedWildcardNegation() {
+        // -essentials.admin.* should deny all admin commands but allow essentials.admin itself
+        Map<String, Boolean> perms = new HashMap<>();
+        perms.put("essentials.*", true);
+        perms.put("-essentials.admin.*", true);
+
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.home", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.admin", perms)); // admin itself allowed
+        assertEquals(TriState.FALSE, WildcardMatcher.check("essentials.admin.bypass", perms));
+        assertEquals(TriState.FALSE, WildcardMatcher.check("essentials.admin.reload", perms));
+    }
 }
