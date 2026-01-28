@@ -50,6 +50,7 @@ public class HyperPermsPlugin extends JavaPlugin {
 
         // Register the global instance for API access
         HyperPermsBootstrap.setInstance(hyperPerms);
+        HyperPermsBootstrap.setPlugin(this);
 
         // Create the platform adapter
         adapter = new HytaleAdapter(hyperPerms, this);
@@ -116,8 +117,9 @@ public class HyperPermsPlugin extends JavaPlugin {
             hyperPerms.disable();
         }
 
-        // Clear the global instance
+        // Clear the global instances
         HyperPermsBootstrap.setInstance(null);
+        HyperPermsBootstrap.setPlugin(null);
 
         // Clear the adapter
         if (adapter != null) {
@@ -132,8 +134,15 @@ public class HyperPermsPlugin extends JavaPlugin {
      */
     private void registerPermissionProvider() {
         try {
+            getLogger().at(Level.INFO).log("Attempting to register HyperPerms permission provider...");
+            getLogger().at(Level.INFO).log("PermissionsModule instance: %s", PermissionsModule.get());
+
             PermissionsModule.get().addProvider(permissionProvider);
-            getLogger().at(Level.INFO).log("Registered HyperPerms as permission provider");
+
+            getLogger().at(Level.INFO).log("Registered HyperPerms as permission provider: %s", permissionProvider.getName());
+
+            // Log all registered providers to see what's in the chain
+            getLogger().at(Level.INFO).log("Provider registered successfully. HyperPerms provider name: %s", permissionProvider.getName());
         } catch (Exception e) {
             getLogger().at(Level.SEVERE).withCause(e).log("Failed to register permission provider");
         }
@@ -261,6 +270,10 @@ public class HyperPermsPlugin extends JavaPlugin {
             // Preload ChatAPI cache for external plugins
             com.hyperperms.api.ChatAPI.preload(uuid);
 
+            // Sync resolved permissions to Hytale's internal system
+            // This ensures negations are properly applied
+            syncPermissionsToHytale(uuid, user);
+
             Logger.debug("Loaded permissions for %s", username);
         }).exceptionally(e -> {
             Logger.severe("Failed to load permissions for %s", e, username);
@@ -352,6 +365,68 @@ public class HyperPermsPlugin extends JavaPlugin {
         // Invalidate all context caches so permissions re-resolve with updated game modes.
         // Game mode changes are infrequent so full invalidation is acceptable.
         hyperPerms.getCacheInvalidator().invalidateAll();
+    }
+
+    /**
+     * Syncs resolved permissions to Hytale's internal permission system.
+     * <p>
+     * Since Hytale doesn't query our PermissionProvider for permission checks,
+     * we must proactively push permission changes. Specifically:
+     * - Remove negated permissions so Hytale's internal storage doesn't grant them
+     * - This handles cases where a child group negates a parent group's permission
+     *
+     * @param uuid the player's UUID
+     * @param user the HyperPerms user
+     */
+    public void syncPermissionsToHytale(java.util.UUID uuid, com.hyperperms.model.User user) {
+        try {
+            var contexts = hyperPerms.getContexts(uuid);
+            var resolved = hyperPerms.getResolver().resolve(user, contexts);
+
+            // Get permissions that are explicitly DENIED (negated)
+            java.util.Set<String> deniedPerms = resolved.getDeniedPermissions();
+
+            if (!deniedPerms.isEmpty()) {
+                // Expand denied permissions (handle wildcards and aliases)
+                java.util.Set<String> expandedDenied = new java.util.HashSet<>(deniedPerms);
+                var aliases = com.hyperperms.registry.PermissionAliases.getInstance();
+                var registry = hyperPerms.getPermissionRegistry();
+
+                for (String perm : deniedPerms) {
+                    // Expand aliases
+                    expandedDenied.addAll(aliases.expand(perm));
+
+                    // Expand wildcards
+                    if (perm.endsWith(".*") || perm.equals("*")) {
+                        expandedDenied.addAll(registry.getMatchingPermissions(perm));
+                    }
+                }
+
+                Logger.info("Removing %d negated permissions from Hytale for %s", expandedDenied.size(), user.getUsername());
+                for (String perm : expandedDenied) {
+                    Logger.debug("  Removing negated: %s", perm);
+                }
+
+                // Remove negated permissions from Hytale's internal storage
+                // IMPORTANT: Only remove from OTHER providers, not our own!
+                // Calling our own removeUserPermissions() would cause infinite recursion
+                // because it triggers syncUserPermissions() which calls this method again.
+                PermissionsModule.get().getProviders().forEach(provider -> {
+                    if (provider != permissionProvider) {
+                        // Remove from other providers (like HytalePermissionsProvider)
+                        try {
+                            provider.removeUserPermissions(uuid, expandedDenied);
+                        } catch (Exception e) {
+                            Logger.debug("Could not remove from provider %s: %s", provider.getName(), e.getMessage());
+                        }
+                    }
+                });
+            }
+
+            Logger.debug("Permission sync complete for %s", user.getUsername());
+        } catch (Exception e) {
+            Logger.severe("Failed to sync permissions to Hytale for %s", e, user.getUsername());
+        }
     }
 
     /**

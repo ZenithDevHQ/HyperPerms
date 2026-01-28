@@ -8,6 +8,7 @@ import com.hyperperms.model.User;
 import com.hyperperms.registry.PermissionAliases;
 import com.hyperperms.resolver.PermissionResolver;
 import com.hyperperms.util.CaseInsensitiveSet;
+import com.hyperperms.util.HyperPermsPermissionSet;
 import com.hyperperms.util.Logger;
 import com.hypixel.hytale.server.core.permissions.provider.PermissionProvider;
 import org.jetbrains.annotations.NotNull;
@@ -44,17 +45,14 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
         return PROVIDER_NAME;
     }
 
-    // ==================== User Permissions ====================
-
     @Override
     public void addUserPermissions(UUID uuid, Set<String> permissions) {
-        User user = hyperPerms.getUserManager().getOrCreateUser(uuid);
-        for (String permission : permissions) {
-            user.setNode(Node.of(permission));
-        }
-        hyperPerms.getUserManager().saveUser(user);
-        hyperPerms.getCacheInvalidator().invalidate(uuid);
-        Logger.debug("Added %d permissions to user %s", permissions.size(), uuid);
+        // IMPORTANT: Do NOT persist permissions added through the Hytale provider API.
+        // Hytale and other plugins call this method to "grant" permissions to users,
+        // but HyperPerms manages permissions through groups and explicit /hp commands.
+        // Persisting these would create direct user nodes that override group negations.
+        Logger.debug("Ignoring addUserPermissions from Hytale API for %s (%d permissions) - permissions are managed through HyperPerms groups",
+                uuid, permissions.size());
     }
 
     @Override
@@ -69,21 +67,16 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
         hyperPerms.getUserManager().saveUser(user);
         hyperPerms.getCacheInvalidator().invalidate(uuid);
         Logger.debug("Removed %d permissions from user %s", permissions.size(), uuid);
+        // Trigger permission sync to handle any negations
+        syncUserPermissions(uuid);
     }
 
     @Override
     public Set<String> getUserPermissions(UUID uuid) {
-        User user = hyperPerms.getUserManager().getOrCreateUser(uuid);
-        ContextSet contexts = hyperPerms.getContexts(uuid);
-
-        PermissionResolver.ResolvedPermissions resolved = hyperPerms.getResolver().resolve(user, contexts);
-        Set<String> expanded = resolved.getExpandedPermissions(hyperPerms.getPermissionRegistry());
-
-        Logger.debug("getUserPermissions(%s) returning %d permissions (case-insensitive)", uuid, expanded.size());
-
-        // Wrap in CaseInsensitiveSet for Hytale compatibility
-        // Hytale may use different case (e.g., "gameMode" vs "gamemode")
-        return new CaseInsensitiveSet(expanded);
+        // Return HyperPermsPermissionSet which delegates contains() to hasPermission()
+        // This ensures negations work regardless of which code path calls this method
+        // (whether Hytale native commands or plugin commands like economy/balance)
+        return new HyperPermsPermissionSet(hyperPerms, uuid);
     }
 
     // ==================== Group Permissions ====================
@@ -119,10 +112,11 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
 
     @Override
     public Set<String> getGroupPermissions(String groupName) {
-        // Handle virtual user group (contains user's direct permissions)
+        // Handle virtual user group - use HyperPermsPermissionSet which delegates
+        // contains() checks to hasPermission(), properly handling negations
         if (groupName.startsWith("user:")) {
             UUID uuid = UUID.fromString(groupName.substring(5));
-            return getUserDirectPermissions(uuid);
+            return new HyperPermsPermissionSet(hyperPerms, uuid);
         }
 
         Group group = hyperPerms.getGroupManager().getGroup(groupName);
@@ -134,7 +128,7 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
         Set<String> expanded = hyperPerms.getResolver().resolveGroup(group, ContextSet.empty())
                 .getExpandedPermissions(hyperPerms.getPermissionRegistry());
 
-        Logger.debug("getGroupPermissions(%s) returning %d permissions (case-insensitive)", groupName, expanded.size());
+        Logger.debug("getGroupPermissions(%s) returning %d permissions", groupName, expanded.size());
 
         // Wrap in CaseInsensitiveSet for Hytale compatibility
         // Hytale may use different case (e.g., "gameMode" vs "gamemode")
@@ -143,11 +137,17 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
 
     /**
      * Gets the direct permissions for a user (not inherited from groups).
-     * This is used for the virtual user group mechanism.
+     * <p>
+     * <b>Note:</b> This method does NOT handle negations correctly. It only returns
+     * permissions where {@code getValue() == true}, ignoring negated permissions.
+     * Use {@link HyperPermsPermissionSet} instead, which delegates to
+     * {@link HyperPerms#hasPermission(UUID, String)} for correct negation handling.
      *
      * @param uuid the user's UUID
-     * @return set of direct user permissions
+     * @return set of direct user permissions (excluding negations)
+     * @deprecated Use {@link HyperPermsPermissionSet} instead which properly handles negations.
      */
+    @Deprecated
     private Set<String> getUserDirectPermissions(UUID uuid) {
         User user = hyperPerms.getUserManager().getUser(uuid);
         if (user == null) {
@@ -213,6 +213,8 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
         hyperPerms.getUserManager().saveUser(user);
         hyperPerms.getCacheInvalidator().invalidate(uuid);
         Logger.debug("Added user %s to group %s", uuid, groupName);
+        // Trigger permission sync to handle any negations from new group
+        syncUserPermissions(uuid);
     }
 
     @Override
@@ -225,27 +227,29 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
         hyperPerms.getUserManager().saveUser(user);
         hyperPerms.getCacheInvalidator().invalidate(uuid);
         Logger.debug("Removed user %s from group %s", uuid, groupName);
+        // Trigger permission sync to handle any negations that might now apply/not apply
+        syncUserPermissions(uuid);
     }
 
     @Override
     public Set<String> getGroupsForUser(UUID uuid) {
         // Use getOrCreateUser to ensure new players get assigned to their default group
-        User user = hyperPerms.getUserManager().getOrCreateUser(uuid);
+        hyperPerms.getUserManager().getOrCreateUser(uuid);
 
-        // Get direct groups and resolve full inheritance chain
-        Set<String> directGroups = new HashSet<>(user.getInheritedGroups());
-        directGroups.add(user.getPrimaryGroup());
-
-        // Recursively collect all parent groups
-        Set<String> allGroups = new HashSet<>();
-        collectInheritedGroups(directGroups, allGroups);
-
-        // Add virtual user group to include user's direct permissions
-        // This is necessary because Hytale only checks group permissions, not user permissions
-        allGroups.add("user:" + uuid.toString());
-
-        Logger.debug("getGroupsForUser(%s) returning %d groups: %s", uuid, allGroups.size(), allGroups);
-        return allGroups;
+        // Return ONLY the virtual user group. This ensures ALL permission resolution goes
+        // through HyperPermsPermissionSet, which properly handles:
+        // - Group inheritance (resolved by PermissionResolver)
+        // - Permission negations (groups can negate inherited permissions)
+        // - Wildcards and aliases
+        //
+        // If we returned actual groups here, Hytale would query each group's permissions
+        // separately and combine them, completely bypassing our negation logic.
+        // For example: if Moderator grants "kick.use" and Admin negates it, Hytale would
+        // see both groups and grant the permission since Moderator has it directly.
+        //
+        // By returning only the virtual user group, Hytale queries HyperPermsPermissionSet
+        // which delegates to hasPermission() for proper resolution.
+        return Set.of("user:" + uuid.toString());
     }
 
     /**
@@ -301,5 +305,22 @@ public class HyperPermsPermissionProvider implements PermissionProvider {
      */
     public boolean hasPermission(UUID uuid, String permission, ContextSet contexts) {
         return hyperPerms.hasPermission(uuid, permission, contexts);
+    }
+
+    /**
+     * Triggers a permission sync for the given user.
+     * Called when permissions change to ensure negations are applied in Hytale.
+     *
+     * @param uuid the user's UUID
+     */
+    private void syncUserPermissions(UUID uuid) {
+        // Get the plugin instance to call sync
+        var pluginObj = com.hyperperms.HyperPermsBootstrap.getPlugin();
+        if (pluginObj instanceof HyperPermsPlugin plugin) {
+            var user = hyperPerms.getUserManager().getUser(uuid);
+            if (user != null) {
+                plugin.syncPermissionsToHytale(uuid, user);
+            }
+        }
     }
 }

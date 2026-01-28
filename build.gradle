@@ -1,10 +1,10 @@
 plugins {
     id 'java'
-    id 'com.gradleup.shadow' version '8.3.5'
+    id 'com.gradleup.shadow' version '9.3.1'
 }
 
 group = 'com.hyperperms'
-version = '2.4.5'
+version = '2.5.0'
 
 // Shared version property avoids accessing project at execution time
 def buildVersion = objects.property(String).convention(version)
@@ -18,8 +18,9 @@ gradle.taskGraph.whenReady { graph ->
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
 }
 
 repositories {
@@ -36,18 +37,27 @@ dependencies {
     // JSON handling
     implementation 'com.google.code.gson:gson:2.11.0'
 
-    // High-performance caching
+    // High-performance caching (L1 cache)
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
+    // Database - HikariCP connection pooling (P5 - deferred, for future MariaDB support)
+    // implementation 'com.zaxxer:HikariCP:6.2.1'
+
+    // Database - MariaDB JDBC driver (P5 - deferred)
+    // implementation 'org.mariadb.jdbc:mariadb-java-client:3.5.1'
+
+    // Redis client for pub/sub and L2 cache (P5 - deferred)
+    // implementation 'io.lettuce:lettuce-core:6.5.2.RELEASE'
+
     // Null safety annotations
-    compileOnly 'org.jetbrains:annotations:24.1.0'
+    compileOnly 'org.jetbrains:annotations:26.0.1'
 
     // VaultUnlocked API (soft dependency - compileOnly)
     compileOnly files('libs/VaultUnlocked-Hytale-2.18.3.jar')
 
     // Testing
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
 }
 
 // Generate BuildInfo.java with project version
@@ -71,6 +81,8 @@ package com.hyperperms;
  */
 public final class BuildInfo {
     public static final String VERSION = "${v}";
+    public static final String JAVA_VERSION = "${System.getProperty('java.version')}";
+    public static final long BUILD_TIMESTAMP = ${System.currentTimeMillis()}L;
     private BuildInfo() {}
 }
 """
@@ -96,10 +108,23 @@ shadowJar {
     // Relocate dependencies to avoid conflicts
     relocate 'com.google.gson', 'com.hyperperms.lib.gson'
     relocate 'com.github.benmanes.caffeine', 'com.hyperperms.lib.caffeine'
+
+    // Future relocations when database support is added:
+    // relocate 'com.zaxxer.hikari', 'com.hyperperms.lib.hikari'
+    // relocate 'org.mariadb.jdbc', 'com.hyperperms.lib.mariadb'
+    // relocate 'io.lettuce', 'com.hyperperms.lib.lettuce'
 }
 
 test {
     useJUnitPlatform()
+
+    // Enable virtual threads for tests (Java 21+)
+    jvmArgs '--enable-preview'
+
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
 }
 
 build {
@@ -119,5 +144,10 @@ tasks.named('build') {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.compilerArgs.addAll(['-Xlint:all', '-Xlint:-processing'])
+    options.compilerArgs.addAll([
+        '-Xlint:all',
+        '-Xlint:-processing',
+        '--enable-preview'
+    ])
 }
+

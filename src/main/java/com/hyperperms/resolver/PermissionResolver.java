@@ -127,18 +127,6 @@ public final class PermissionResolver {
         return resolved.checkWithTrace(permission);
     }
 
-    /**
-     * Checks if a user has a permission.
-     *
-     * @param user       the user
-     * @param permission the permission to check
-     * @param contexts   the current context
-     * @return true if the user has the permission
-     */
-    public boolean hasPermission(@NotNull User user, @NotNull String permission, @NotNull ContextSet contexts) {
-        return check(user, permission, contexts).asBoolean();
-    }
-
     private void applyNode(Map<String, Boolean> permissions, Map<String, String> sources,
                            Node node, @Nullable String groupName) {
         String perm = node.getPermission();

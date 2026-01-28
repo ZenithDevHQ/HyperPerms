@@ -35,6 +35,7 @@ import java.util.logging.Level;
 public final class HyperPermsBootstrap {
 
     private static HyperPerms instance;
+    private static Object plugin; // Platform-specific plugin instance
 
     private HyperPermsBootstrap() {}
 
@@ -55,6 +56,25 @@ public final class HyperPermsBootstrap {
      */
     public static void setInstance(HyperPerms hyperPerms) {
         instance = hyperPerms;
+    }
+
+    /**
+     * Gets the platform-specific plugin instance.
+     *
+     * @return the plugin instance, or null if not initialized
+     */
+    public static Object getPlugin() {
+        return plugin;
+    }
+
+    /**
+     * Sets the platform-specific plugin instance.
+     * Should only be called by the platform plugin.
+     *
+     * @param pluginInstance the plugin instance
+     */
+    public static void setPlugin(Object pluginInstance) {
+        plugin = pluginInstance;
     }
 
     /**
