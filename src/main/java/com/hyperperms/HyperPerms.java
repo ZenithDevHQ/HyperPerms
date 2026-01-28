@@ -20,6 +20,7 @@ import com.hyperperms.context.calculators.WorldContextCalculator;
 import com.hyperperms.integration.FactionIntegration;
 import com.hyperperms.integration.VaultUnlockedIntegration;
 import com.hyperperms.integration.WerChatIntegration;
+import com.hyperperms.discovery.RuntimePermissionDiscovery;
 import com.hyperperms.update.UpdateChecker;
 import com.hyperperms.registry.PermissionRegistry;
 import com.hyperperms.manager.GroupManagerImpl;
@@ -64,6 +65,7 @@ public final class HyperPerms implements HyperPermsAPI {
     private ContextManager contextManager;
     private PlayerContextProvider playerContextProvider;
     private com.hyperperms.registry.PermissionRegistry permissionRegistry;
+    private RuntimePermissionDiscovery runtimeDiscovery;
 
     // Chat system
     private com.hyperperms.chat.ChatManager chatManager;
@@ -200,6 +202,17 @@ public final class HyperPerms implements HyperPermsAPI {
             permissionRegistry = com.hyperperms.registry.PermissionRegistry.getInstance();
             permissionRegistry.registerBuiltInPermissions();
 
+            // Initialize runtime permission discovery
+            Logger.info("[Discovery] Initializing runtime permission discovery...");
+            Path modsDir = Path.of(System.getProperty("user.home"), "Documents", "Hytale", "mods");
+            runtimeDiscovery = new RuntimePermissionDiscovery(dataDirectory, modsDir);
+            runtimeDiscovery.load();
+            java.util.Set<String> installedPlugins = runtimeDiscovery.scanInstalledPlugins();
+            runtimeDiscovery.buildNamespaceMapping();
+            runtimeDiscovery.scanJarPermissions(installedPlugins);
+            runtimeDiscovery.pruneRemovedPlugins(installedPlugins);
+            permissionRegistry.registerDiscoveredPermissions(runtimeDiscovery);
+
             // Initialize chat manager
             chatManager = new com.hyperperms.chat.ChatManager(this);
             chatManager.loadConfig();
@@ -267,6 +280,18 @@ public final class HyperPerms implements HyperPermsAPI {
                     TimeUnit.SECONDS
             );
 
+            // Schedule discovery auto-save (every 5 minutes)
+            scheduler.scheduleAtFixedRate(
+                    () -> {
+                        try {
+                            runtimeDiscovery.save();
+                        } catch (Exception e) {
+                            Logger.warn("Failed to auto-save discovered permissions: %s", e.getMessage());
+                        }
+                    },
+                    300, 300, TimeUnit.SECONDS
+            );
+
             // Set verbose mode
             verboseMode = config.isVerboseEnabledByDefault();
 
@@ -309,6 +334,15 @@ public final class HyperPerms implements HyperPermsAPI {
                 scheduler.awaitTermination(5, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            }
+        }
+
+        // Save discovered permissions
+        if (runtimeDiscovery != null) {
+            try {
+                runtimeDiscovery.save();
+            } catch (Exception e) {
+                Logger.warn("Failed to save discovered permissions on shutdown");
             }
         }
 
@@ -576,6 +610,20 @@ public final class HyperPerms implements HyperPermsAPI {
     @NotNull
     public com.hyperperms.registry.PermissionRegistry getPermissionRegistry() {
         return permissionRegistry;
+    }
+
+    /**
+     * Gets the runtime permission discovery system.
+     * <p>
+     * The discovery system captures permissions checked at runtime that are not
+     * registered in the built-in registry, persists them to disk, and prunes
+     * permissions from plugins that are no longer installed.
+     *
+     * @return the runtime discovery, or null if not yet initialized
+     */
+    @Nullable
+    public RuntimePermissionDiscovery getRuntimeDiscovery() {
+        return runtimeDiscovery;
     }
 
     /**

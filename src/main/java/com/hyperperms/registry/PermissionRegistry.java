@@ -1,5 +1,6 @@
 package com.hyperperms.registry;
 
+import com.hyperperms.discovery.RuntimePermissionDiscovery;
 import com.hyperperms.util.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,6 +27,7 @@ public final class PermissionRegistry {
 
     private final Map<String, PermissionInfo> permissions = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> byCategory = new ConcurrentHashMap<>();
+    private final Set<String> builtInPermissions = ConcurrentHashMap.newKeySet();
 
     /**
      * Information about a registered permission.
@@ -325,6 +327,25 @@ public final class PermissionRegistry {
     }
 
     /**
+     * Checks if a permission is a built-in (hardcoded) permission.
+     *
+     * @param permission the permission node
+     * @return true if the permission was registered as a built-in
+     */
+    public boolean isBuiltIn(@NotNull String permission) {
+        return builtInPermissions.contains(permission.toLowerCase());
+    }
+
+    /**
+     * Registers all discovered permissions from the runtime discovery system.
+     *
+     * @param discovery the runtime permission discovery instance
+     */
+    public void registerDiscoveredPermissions(@NotNull RuntimePermissionDiscovery discovery) {
+        discovery.registerAll(this);
+    }
+
+    /**
      * Registers HyperPerms' built-in permissions.
      */
     public void registerBuiltInPermissions() {
@@ -394,6 +415,9 @@ public final class PermissionRegistry {
 
         // Register HyperFactions permissions for wildcard expansion
         registerHyperFactionsPermissions();
+
+        // Snapshot all currently registered permissions as built-in
+        builtInPermissions.addAll(permissions.keySet());
 
         Logger.info("Registered %d built-in permissions", size());
     }
@@ -758,16 +782,18 @@ public final class PermissionRegistry {
 
         // Admin permissions
         register("hyperhomes.admin", "Admin access to HyperHomes", "hyperhomes", "HyperHomes");
-        register("hyperhomes.admin.teleport", "Teleport to any player's homes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.admin.teleport.others", "Teleport to any player's homes", "hyperhomes", "HyperHomes");
         register("hyperhomes.admin.list", "List any player's homes", "hyperhomes", "HyperHomes");
         register("hyperhomes.admin.delete", "Delete any player's homes", "hyperhomes", "HyperHomes");
         register("hyperhomes.admin.modify", "Modify any player's homes", "hyperhomes", "HyperHomes");
         register("hyperhomes.admin.reload", "Reload HyperHomes configuration", "hyperhomes", "HyperHomes");
+        register("hyperhomes.admin.update", "Update HyperHomes", "hyperhomes", "HyperHomes");
+        register("hyperhomes.admin.migrate", "Migrate HyperHomes data", "hyperhomes", "HyperHomes");
 
         // Limit bypass permissions
-        register("hyperhomes.limit.bypass", "Bypass home limits", "hyperhomes", "HyperHomes");
-        register("hyperhomes.cooldown.bypass", "Bypass teleport cooldowns", "hyperhomes", "HyperHomes");
-        register("hyperhomes.warmup.bypass", "Bypass teleport warmups", "hyperhomes", "HyperHomes");
+        register("hyperhomes.unlimited", "Bypass home limits", "hyperhomes", "HyperHomes");
+        register("hyperhomes.bypass.cooldown", "Bypass teleport cooldowns", "hyperhomes", "HyperHomes");
+        register("hyperhomes.bypass.warmup", "Bypass teleport warmups", "hyperhomes", "HyperHomes");
 
         // ==================== Hytale command path format ====================
         // Hytale uses full Java package path for plugin commands
@@ -826,6 +852,11 @@ public final class PermissionRegistry {
 
         // Back command
         register("hyperwarps.back", "Use /back command", "hyperwarps", "HyperWarps");
+
+        // Bypass permissions
+        register("hyperwarps.bypass.warmup", "Bypass teleport warmup", "hyperwarps", "HyperWarps");
+        register("hyperwarps.bypass.cooldown", "Bypass teleport cooldown", "hyperwarps", "HyperWarps");
+        register("hyperwarps.bypass.toggle", "Bypass TPA toggle", "hyperwarps", "HyperWarps");
 
         // ==================== Hytale command path format ====================
         // Hytale uses full Java package path for plugin commands
@@ -922,6 +953,7 @@ public final class PermissionRegistry {
         register("hyperfactions.bypass.interact", "Bypass interact protection", "hyperfactions", "HyperFactions");
         register("hyperfactions.bypass.container", "Bypass container protection", "hyperfactions", "HyperFactions");
         register("hyperfactions.bypass.damage", "Bypass damage protection", "hyperfactions", "HyperFactions");
+        register("hyperfactions.bypass.use", "Bypass use protection", "hyperfactions", "HyperFactions");
 
         // ==================== Hytale command path format ====================
         // Hytale uses full Java package path for plugin commands
