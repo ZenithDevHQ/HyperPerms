@@ -861,6 +861,8 @@ public final class PermissionAliases {
             "hyperhomes.gui",
             "hyperhomes.list",
             "hyperhomes.share",
+            "hyperhomes.share.public",
+            "hyperhomes.share.invite",
             "hyperhomes.teleport",
             "hyperhomes.unlimited",
             "hyperhomes.bypass.cooldown",
@@ -870,6 +872,9 @@ public final class PermissionAliases {
             "hyperhomes.admin.update",
             "hyperhomes.admin.migrate",
             "hyperhomes.admin.teleport.others",
+            "hyperhomes.admin.list",
+            "hyperhomes.admin.delete",
+            "hyperhomes.admin.modify",
             "com.hyperhomes.hyperhomes.command.homes",
             "com.hyperhomes.hyperhomes.command.home",
             "com.hyperhomes.hyperhomes.command.sethome",
@@ -878,6 +883,21 @@ public final class PermissionAliases {
             "com.hyperhomes.hyperhomes.command.homes.list",
             "com.hyperhomes.hyperhomes.command.homes.set",
             "com.hyperhomes.hyperhomes.command.homes.delete");
+
+        // HyperHomes bypass wildcard
+        aliasWildcard("hyperhomes.bypass.*",
+            "hyperhomes.bypass.cooldown",
+            "hyperhomes.bypass.warmup");
+
+        // HyperHomes admin wildcard
+        aliasWildcard("hyperhomes.admin.*",
+            "hyperhomes.admin.reload",
+            "hyperhomes.admin.update",
+            "hyperhomes.admin.migrate",
+            "hyperhomes.admin.teleport.others",
+            "hyperhomes.admin.list",
+            "hyperhomes.admin.delete",
+            "hyperhomes.admin.modify");
 
         // ==================== HyperWarps Plugin ====================
         alias("hyperwarps.warp", "com.hyperwarps.hyperwarps.command.warp");
@@ -898,6 +918,28 @@ public final class PermissionAliases {
         alias("hyperwarps.tptoggle", "com.hyperwarps.hyperwarps.command.tptoggle");
         alias("hyperwarps.back", "com.hyperwarps.hyperwarps.command.back");
         aliasWildcard("hyperwarps.*",
+            "hyperwarps.use",
+            "hyperwarps.admin",
+            "hyperwarps.warp",
+            "hyperwarps.warps",
+            "hyperwarps.setwarp",
+            "hyperwarps.delwarp",
+            "hyperwarps.warpinfo",
+            "hyperwarps.spawn",
+            "hyperwarps.spawns",
+            "hyperwarps.setspawn",
+            "hyperwarps.delspawn",
+            "hyperwarps.spawninfo",
+            "hyperwarps.tpa",
+            "hyperwarps.tpahere",
+            "hyperwarps.tpaccept",
+            "hyperwarps.tpdeny",
+            "hyperwarps.tpcancel",
+            "hyperwarps.tptoggle",
+            "hyperwarps.back",
+            "hyperwarps.bypass.warmup",
+            "hyperwarps.bypass.cooldown",
+            "hyperwarps.bypass.toggle",
             "com.hyperwarps.hyperwarps.command.warp",
             "com.hyperwarps.hyperwarps.command.warps",
             "com.hyperwarps.hyperwarps.command.setwarp",
@@ -915,6 +957,12 @@ public final class PermissionAliases {
             "com.hyperwarps.hyperwarps.command.tpcancel",
             "com.hyperwarps.hyperwarps.command.tptoggle",
             "com.hyperwarps.hyperwarps.command.back");
+
+        // HyperWarps bypass wildcard
+        aliasWildcard("hyperwarps.bypass.*",
+            "hyperwarps.bypass.warmup",
+            "hyperwarps.bypass.cooldown",
+            "hyperwarps.bypass.toggle");
 
         // ==================== HyperFactions Plugin ====================
         // Core command permissions (these are what HyperFactions actually checks)
@@ -1040,7 +1088,8 @@ public final class PermissionAliases {
             "hyperfactions.bypass.build",
             "hyperfactions.bypass.interact",
             "hyperfactions.bypass.container",
-            "hyperfactions.bypass.damage");
+            "hyperfactions.bypass.damage",
+            "hyperfactions.bypass.use");
 
         // Wildcard expansion
         aliasWildcard("hyperfactions.*",
@@ -1085,6 +1134,7 @@ public final class PermissionAliases {
             "hyperfactions.bypass.interact",
             "hyperfactions.bypass.container",
             "hyperfactions.bypass.damage",
+            "hyperfactions.bypass.use",
             "com.hyperfactions.hyperfactions.command.faction",
             "com.hyperfactions.hyperfactions.command.f");
     }

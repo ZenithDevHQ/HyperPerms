@@ -797,7 +797,7 @@ public final class PermissionRegistry {
 
         // ==================== Hytale command path format ====================
         // Hytale uses full Java package path for plugin commands
-        register("com.*", "All plugin commands", "hyperhomes", "HyperHomes");
+        // NOTE: com.* is intentionally NOT registered - it would grant ALL plugin commands
         register("com.hyperhomes.*", "All HyperHomes package permissions", "hyperhomes", "HyperHomes");
         register("com.hyperhomes.hyperhomes.*", "All HyperHomes commands", "hyperhomes", "HyperHomes");
         register("com.hyperhomes.hyperhomes.command.*", "All HyperHomes command permissions", "hyperhomes", "HyperHomes");
