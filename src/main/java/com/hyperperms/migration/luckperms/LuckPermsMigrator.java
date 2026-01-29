@@ -46,8 +46,34 @@ public final class LuckPermsMigrator implements PermissionMigrator {
     
     public LuckPermsMigrator(@NotNull HyperPerms plugin) {
         this.plugin = plugin;
-        Path serverRoot = plugin.getDataDirectory().getParent().getParent();
-        this.detector = new LuckPermsStorageDetector(serverRoot);
+        Path serverRoot = resolveServerRoot(plugin);
+        this.detector = serverRoot != null ? new LuckPermsStorageDetector(serverRoot) : null;
+    }
+
+    /**
+     * Safely resolves the server root directory from the plugin data directory.
+     *
+     * @param plugin the HyperPerms plugin
+     * @return the server root path, or null if it cannot be determined
+     */
+    @Nullable
+    private static Path resolveServerRoot(@NotNull HyperPerms plugin) {
+        Path dataDir = plugin.getDataDirectory();
+        if (dataDir == null) {
+            Logger.debug("Cannot resolve server root: plugin data directory is null");
+            return null;
+        }
+        Path parent = dataDir.getParent();
+        if (parent == null) {
+            Logger.debug("Cannot resolve server root: data directory parent is null");
+            return null;
+        }
+        Path serverRoot = parent.getParent();
+        if (serverRoot == null) {
+            Logger.debug("Cannot resolve server root: grandparent is null");
+            return null;
+        }
+        return serverRoot;
     }
     
     @Override
@@ -58,7 +84,7 @@ public final class LuckPermsMigrator implements PermissionMigrator {
     
     @Override
     public boolean canMigrate() {
-        if (!detector.isLuckPermsInstalled()) {
+        if (detector == null || !detector.isLuckPermsInstalled()) {
             return false;
         }
         reader = detector.createReader();

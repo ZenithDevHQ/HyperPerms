@@ -3,17 +3,24 @@ package com.hyperperms.tablist;
 import com.hyperperms.HyperPerms;
 import com.hyperperms.chat.ColorUtil;
 import com.hyperperms.util.Logger;
-import com.hypixel.hytale.event.EventPriority;
 import com.hypixel.hytale.event.EventRegistration;
 import com.hypixel.hytale.event.EventRegistry;
+import com.hypixel.hytale.math.util.MathUtil;
+import com.hypixel.hytale.metrics.metric.HistoricMetric;
+import com.hypixel.hytale.protocol.packets.connection.PongType;
+import com.hypixel.hytale.protocol.packets.interface_.AddToServerPlayerList;
+import com.hypixel.hytale.protocol.packets.interface_.ServerPlayerListPlayer;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.event.events.player.PlayerConnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
+import com.hypixel.hytale.server.core.io.PacketHandler;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.Universe;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.Color;
-import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -21,14 +28,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Hytale event listener for tab list name formatting.
+ * Hytale event listener for player list (tab list) name formatting.
  *
- * <p>This listener:
- * <ul>
- *   <li>Listens to PlayerConnectEvent to format tab list names</li>
- *   <li>Listens to PlayerDisconnectEvent to clean up</li>
- *   <li>Uses reflection to find available Hytale methods for setting display names</li>
- * </ul>
+ * <p>This listener uses Hytale's packet system to send formatted player names
+ * to the "Server Players" section of the player list. Unlike reflection-based
+ * approaches, this directly sends {@link AddToServerPlayerList} packets with
+ * formatted {@link ServerPlayerListPlayer} entries.
+ *
+ * <p>Formatting flow:
+ * <ol>
+ *   <li>On player connect, send full player list to joining player</li>
+ *   <li>Send new player's formatted entry to all existing players</li>
+ *   <li>On permission/group changes, refresh the affected player's entry</li>
+ * </ol>
  */
 public class TabListListener {
 
@@ -42,11 +54,6 @@ public class TabListListener {
     private EventRegistration<?, ?> connectRegistration;
     private EventRegistration<?, ?> disconnectRegistration;
 
-    // Reflection cache for Hytale API methods
-    private static Method setDisplayNameMethod;
-    private static Method setTabListNameMethod;
-    private static boolean methodsChecked = false;
-
     /**
      * Creates a new TabListListener.
      *
@@ -56,58 +63,6 @@ public class TabListListener {
     public TabListListener(@NotNull HyperPerms plugin, @NotNull TabListManager tabListManager) {
         this.plugin = Objects.requireNonNull(plugin, "plugin cannot be null");
         this.tabListManager = Objects.requireNonNull(tabListManager, "tabListManager cannot be null");
-
-        // Check for available methods on first construction
-        checkAvailableMethods();
-    }
-
-    /**
-     * Checks for available display name methods using reflection.
-     */
-    private static synchronized void checkAvailableMethods() {
-        if (methodsChecked) {
-            return;
-        }
-        methodsChecked = true;
-
-        try {
-            // Try to find setDisplayName method on PlayerRef
-            setDisplayNameMethod = PlayerRef.class.getMethod("setDisplayName", Message.class);
-            Logger.debug("Found PlayerRef.setDisplayName(Message) method");
-        } catch (NoSuchMethodException e) {
-            Logger.debug("PlayerRef.setDisplayName(Message) not found");
-        }
-
-        try {
-            // Try to find setTabListName method on PlayerRef
-            setTabListNameMethod = PlayerRef.class.getMethod("setTabListName", Message.class);
-            Logger.debug("Found PlayerRef.setTabListName(Message) method");
-        } catch (NoSuchMethodException e) {
-            Logger.debug("PlayerRef.setTabListName(Message) not found");
-        }
-
-        // Also try String variants
-        if (setDisplayNameMethod == null) {
-            try {
-                setDisplayNameMethod = PlayerRef.class.getMethod("setDisplayName", String.class);
-                Logger.debug("Found PlayerRef.setDisplayName(String) method");
-            } catch (NoSuchMethodException e) {
-                Logger.debug("PlayerRef.setDisplayName(String) not found");
-            }
-        }
-
-        if (setTabListNameMethod == null) {
-            try {
-                setTabListNameMethod = PlayerRef.class.getMethod("setTabListName", String.class);
-                Logger.debug("Found PlayerRef.setTabListName(String) method");
-            } catch (NoSuchMethodException e) {
-                Logger.debug("PlayerRef.setTabListName(String) not found");
-            }
-        }
-
-        if (setDisplayNameMethod == null && setTabListNameMethod == null) {
-            Logger.warn("No tab list name methods found on PlayerRef - tab list formatting may not work");
-        }
     }
 
     /**
@@ -118,22 +73,22 @@ public class TabListListener {
     public void register(@NotNull EventRegistry eventRegistry) {
         Objects.requireNonNull(eventRegistry, "eventRegistry cannot be null");
 
-        // Register async handler for PlayerConnectEvent (sync, kicks off async formatting)
+        // Register handler for PlayerConnectEvent
         connectRegistration = eventRegistry.register(
             PlayerConnectEvent.class,
             this::onPlayerConnect
         );
 
-        // Register sync handler for PlayerDisconnectEvent
+        // Register handler for PlayerDisconnectEvent
         disconnectRegistration = eventRegistry.register(
             PlayerDisconnectEvent.class,
             this::onPlayerDisconnect
         );
 
-        // Set up the name applier callback
-        tabListManager.setNameApplier(this::applyTabListName);
+        // Set up the name applier callback for when permissions change
+        tabListManager.setNameApplier(this::refreshPlayerInList);
 
-        Logger.info("Tab list listener registered");
+        Logger.info("Player list formatting registered (packet-based)");
     }
 
     /**
@@ -156,37 +111,96 @@ public class TabListListener {
         // Clear tracked players
         trackedPlayers.clear();
 
-        Logger.info("Tab list listener marked for cleanup");
+        Logger.info("Player list listener marked for cleanup");
     }
 
     /**
      * Handles player connect event.
+     * Sends the full formatted player list to the joining player and
+     * notifies existing players about the new player.
      *
      * @param event the player connect event
      */
     private void onPlayerConnect(PlayerConnectEvent event) {
-        PlayerRef playerRef = event.getPlayerRef();
-        if (playerRef == null) {
+        PlayerRef joiningPlayer = event.getPlayerRef();
+        if (joiningPlayer == null) {
             return;
         }
 
-        UUID uuid = playerRef.getUuid();
-        String playerName = playerRef.getUsername();
+        UUID uuid = joiningPlayer.getUuid();
+        String playerName = joiningPlayer.getUsername();
 
         // Track the player
-        trackedPlayers.put(uuid, playerRef);
+        trackedPlayers.put(uuid, joiningPlayer);
 
-        Logger.debug("Tab list: Player connecting: %s (%s)", playerName, uuid);
+        Logger.debug("Player list: Player connecting: %s (%s)", playerName, uuid);
 
-        // Format and apply tab list name asynchronously
+        // Send player list updates via packets
         if (tabListManager.isEnabled()) {
-            tabListManager.formatTabListName(uuid, playerName).thenAccept(formattedName -> {
-                applyTabListName(uuid, formattedName);
-            }).exceptionally(e -> {
-                Logger.warn("Failed to format tab list name for %s: %s", playerName, e.getMessage());
+            updatePlayerList(joiningPlayer);
+        }
+    }
+
+    /**
+     * Updates the player list when a new player joins.
+     * Sends the full list to the joining player and the new player entry to others.
+     *
+     * @param joiningPlayer the joining player
+     */
+    private void updatePlayerList(@NotNull PlayerRef joiningPlayer) {
+        List<PlayerRef> allPlayers = Universe.get().getPlayers();
+
+        // Build list entries for all players asynchronously
+        List<CompletableFuture<ServerPlayerListPlayer>> futures = new ArrayList<>();
+        for (PlayerRef player : allPlayers) {
+            futures.add(createServerPlayerListPlayerAsync(player));
+        }
+
+        // Track which index the joining player is at
+        int joiningPlayerIndex = -1;
+        for (int i = 0; i < allPlayers.size(); i++) {
+            if (allPlayers.get(i).getUuid().equals(joiningPlayer.getUuid())) {
+                joiningPlayerIndex = i;
+                break;
+            }
+        }
+        final int finalJoiningIndex = joiningPlayerIndex;
+
+        // Wait for all entries to be created, then send packets
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
+            .thenAccept(v -> {
+                // Collect all completed entries
+                ServerPlayerListPlayer[] serverListPlayers = new ServerPlayerListPlayer[futures.size()];
+                for (int i = 0; i < futures.size(); i++) {
+                    serverListPlayers[i] = futures.get(i).join();
+                }
+
+                // Send full list to the joining player
+                AddToServerPlayerList fullListPacket = new AddToServerPlayerList(serverListPlayers);
+                joiningPlayer.getPacketHandler().write(fullListPacket);
+
+                // Get the joining player's entry by index and send to others
+                if (finalJoiningIndex >= 0 && finalJoiningIndex < serverListPlayers.length) {
+                    ServerPlayerListPlayer joiningEntry = serverListPlayers[finalJoiningIndex];
+                    AddToServerPlayerList newPlayerPacket = new AddToServerPlayerList(
+                        new ServerPlayerListPlayer[]{joiningEntry}
+                    );
+
+                    for (PlayerRef player : allPlayers) {
+                        if (!player.getUuid().equals(joiningPlayer.getUuid())) {
+                            player.getPacketHandler().write(newPlayerPacket);
+                        }
+                    }
+                }
+
+                Logger.debug("Player list: Sent updates for %s to %d players",
+                    joiningPlayer.getUsername(), allPlayers.size());
+            })
+            .exceptionally(e -> {
+                Logger.warn("Player list: Failed to update for %s: %s",
+                    joiningPlayer.getUsername(), e.getMessage());
                 return null;
             });
-        }
     }
 
     /**
@@ -208,52 +222,43 @@ public class TabListListener {
         // Invalidate cache
         tabListManager.invalidateCache(uuid);
 
-        Logger.debug("Tab list: Player disconnected: %s", playerRef.getUsername());
+        Logger.debug("Player list: Player disconnected: %s", playerRef.getUsername());
     }
 
     /**
-     * Applies the formatted tab list name to a player.
+     * Refreshes a specific player's entry in all players' lists.
+     * Called when a player's display name should be updated (e.g., permission change).
      *
      * @param uuid the player's UUID
-     * @param formattedName the formatted name with color codes
+     * @param formattedName the new formatted name (used by the callback interface)
      */
-    private void applyTabListName(@NotNull UUID uuid, @NotNull String formattedName) {
-        PlayerRef playerRef = trackedPlayers.get(uuid);
-        if (playerRef == null) {
-            Logger.debug("Tab list: Player %s not tracked, cannot apply name", uuid);
+    private void refreshPlayerInList(@NotNull UUID uuid, @NotNull String formattedName) {
+        PlayerRef targetPlayer = trackedPlayers.get(uuid);
+        if (targetPlayer == null) {
+            Logger.debug("Player list: Player %s not tracked, cannot refresh", uuid);
             return;
         }
 
-        try {
-            // Convert to Hytale Message
-            Message nameMessage = toHytaleMessage(formattedName);
+        // Create updated entry asynchronously
+        createServerPlayerListPlayerAsync(targetPlayer)
+            .thenAccept(updatedEntry -> {
+                AddToServerPlayerList updatePacket = new AddToServerPlayerList(
+                    new ServerPlayerListPlayer[]{updatedEntry}
+                );
 
-            // Try setTabListName first (more specific)
-            if (setTabListNameMethod != null) {
-                if (setTabListNameMethod.getParameterTypes()[0] == Message.class) {
-                    setTabListNameMethod.invoke(playerRef, nameMessage);
-                } else {
-                    setTabListNameMethod.invoke(playerRef, formattedName);
+                // Send to all connected players
+                List<PlayerRef> allPlayers = Universe.get().getPlayers();
+                for (PlayerRef player : allPlayers) {
+                    player.getPacketHandler().write(updatePacket);
                 }
-                Logger.debug("Tab list: Applied name via setTabListName: %s", formattedName);
-                return;
-            }
 
-            // Fall back to setDisplayName
-            if (setDisplayNameMethod != null) {
-                if (setDisplayNameMethod.getParameterTypes()[0] == Message.class) {
-                    setDisplayNameMethod.invoke(playerRef, nameMessage);
-                } else {
-                    setDisplayNameMethod.invoke(playerRef, formattedName);
-                }
-                Logger.debug("Tab list: Applied name via setDisplayName: %s", formattedName);
-                return;
-            }
-
-            Logger.debug("Tab list: No method available to set display name for %s", uuid);
-        } catch (Exception e) {
-            Logger.warn("Tab list: Failed to apply name for %s: %s", uuid, e.getMessage());
-        }
+                Logger.debug("Player list: Refreshed entry for %s", targetPlayer.getUsername());
+            })
+            .exceptionally(e -> {
+                Logger.warn("Player list: Failed to refresh entry for %s: %s",
+                    targetPlayer.getUsername(), e.getMessage());
+                return null;
+            });
     }
 
     /**
@@ -272,13 +277,43 @@ public class TabListListener {
 
     /**
      * Updates all connected players' tab list names.
+     * Sends a complete refresh to all players.
      */
     public void updateAllPlayers() {
-        for (var entry : trackedPlayers.entrySet()) {
-            UUID uuid = entry.getKey();
-            PlayerRef playerRef = entry.getValue();
-            tabListManager.updatePlayer(uuid, playerRef.getUsername());
+        if (!tabListManager.isEnabled()) {
+            return;
         }
+
+        List<PlayerRef> allPlayers = Universe.get().getPlayers();
+        if (allPlayers.isEmpty()) {
+            return;
+        }
+
+        // Build complete player list asynchronously
+        List<CompletableFuture<ServerPlayerListPlayer>> futures = new ArrayList<>();
+        for (PlayerRef player : allPlayers) {
+            futures.add(createServerPlayerListPlayerAsync(player));
+        }
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
+            .thenAccept(v -> {
+                ServerPlayerListPlayer[] serverListPlayers = new ServerPlayerListPlayer[futures.size()];
+                for (int i = 0; i < futures.size(); i++) {
+                    serverListPlayers[i] = futures.get(i).join();
+                }
+
+                // Send to all players
+                AddToServerPlayerList fullListPacket = new AddToServerPlayerList(serverListPlayers);
+                for (PlayerRef player : allPlayers) {
+                    player.getPacketHandler().write(fullListPacket);
+                }
+
+                Logger.debug("Player list: Full refresh sent to %d players", allPlayers.size());
+            })
+            .exceptionally(e -> {
+                Logger.warn("Player list: Failed to refresh all players: %s", e.getMessage());
+                return null;
+            });
     }
 
     /**
@@ -288,6 +323,101 @@ public class TabListListener {
      */
     public int getTrackedPlayerCount() {
         return trackedPlayers.size();
+    }
+
+    /**
+     * Creates a ServerPlayerListPlayer entry for a player with formatted name asynchronously.
+     *
+     * @param playerRef the player reference
+     * @return a future containing the server player list entry
+     */
+    @NotNull
+    private CompletableFuture<ServerPlayerListPlayer> createServerPlayerListPlayerAsync(@NotNull PlayerRef playerRef) {
+        String playerName = playerRef.getUsername();
+        UUID uuid = playerRef.getUuid();
+
+        // Get ping value (synchronous, fast)
+        int ping = getPingValue(playerRef.getPacketHandler());
+        UUID worldUuid = playerRef.getWorldUuid();
+
+        // Format the display name asynchronously
+        return formatPlayerNameAsync(uuid, playerName)
+            .thenApply(formattedName -> new ServerPlayerListPlayer(
+                uuid,
+                formattedName,
+                worldUuid,
+                ping
+            ));
+    }
+
+    /**
+     * Formats a player's name with their HyperPerms prefix/suffix asynchronously.
+     * Color codes are stripped since Hytale's player list doesn't support them.
+     *
+     * @param uuid the player's UUID
+     * @param playerName the player's base name
+     * @return a future containing the formatted name (without color codes)
+     */
+    @NotNull
+    private CompletableFuture<String> formatPlayerNameAsync(@NotNull UUID uuid, @NotNull String playerName) {
+        if (!tabListManager.isEnabled()) {
+            return CompletableFuture.completedFuture(playerName);
+        }
+
+        return tabListManager.formatTabListName(uuid, playerName)
+            .thenApply(TabListListener::stripAllFormatting) // Strip all formatting - Hytale player list doesn't support it
+            .exceptionally(e -> {
+                Logger.debug("Player list: Using plain name for %s due to: %s", playerName, e.getMessage());
+                return playerName;
+            });
+    }
+
+    /**
+     * Strips all formatting codes and invisible characters from text.
+     * More aggressive than ColorUtil.stripColors() to ensure clean player list names.
+     *
+     * @param text the input text
+     * @return clean text with no formatting codes or invisible characters
+     */
+    @NotNull
+    private static String stripAllFormatting(@NotNull String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+
+        // First use ColorUtil's strip
+        String stripped = ColorUtil.stripColors(text);
+
+        // Then remove any remaining § characters (in case of malformed codes)
+        stripped = stripped.replace("§", "").replace("\u00A7", "");
+
+        // Remove common invisible/zero-width Unicode characters
+        stripped = stripped
+            .replace("\u200B", "")  // Zero-width space
+            .replace("\u200C", "")  // Zero-width non-joiner
+            .replace("\u200D", "")  // Zero-width joiner
+            .replace("\uFEFF", "")  // BOM / Zero-width no-break space
+            .replace("\u00AD", ""); // Soft hyphen
+
+        // Add leading spaces for padding (Hytale's player list clips the left edge)
+        return "  " + stripped.trim();
+    }
+
+    /**
+     * Gets the ping value for a player's packet handler.
+     *
+     * @param handler the packet handler
+     * @return the ping in milliseconds
+     */
+    private static int getPingValue(@NotNull PacketHandler handler) {
+        try {
+            HistoricMetric historicMetric = handler.getPingInfo(PongType.Direct).getPingMetricSet();
+            double average = historicMetric.getAverage(0);
+            return (int) PacketHandler.PingInfo.TIME_UNIT.toMillis(MathUtil.fastCeil(average));
+        } catch (Exception e) {
+            // Return reasonable default if ping calculation fails
+            return 50;
+        }
     }
 
     /**
@@ -383,7 +513,7 @@ public class TabListListener {
 
             return result != null ? result : Message.raw("");
         } catch (Exception e) {
-            Logger.warn("Tab list: Failed to parse colors: %s", e.getMessage());
+            Logger.warn("Player list: Failed to parse colors: %s", e.getMessage());
             return Message.raw(ColorUtil.stripColors(formatted));
         }
     }
