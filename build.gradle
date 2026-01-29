@@ -40,6 +40,12 @@ dependencies {
     // High-performance caching (L1 cache)
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
+    // YAML parsing (for LuckPerms migration)
+    implementation 'org.yaml:snakeyaml:2.2'
+
+    // H2 database (optional, for LuckPerms H2 migration)
+    compileOnly 'com.h2database:h2:2.2.224'
+
     // Database - HikariCP connection pooling (P5 - deferred, for future MariaDB support)
     // implementation 'com.zaxxer:HikariCP:6.2.1'
 
@@ -108,6 +114,7 @@ shadowJar {
     // Relocate dependencies to avoid conflicts
     relocate 'com.google.gson', 'com.hyperperms.lib.gson'
     relocate 'com.github.benmanes.caffeine', 'com.hyperperms.lib.caffeine'
+    relocate 'org.yaml.snakeyaml', 'com.hyperperms.lib.snakeyaml'
 
     // Future relocations when database support is added:
     // relocate 'com.zaxxer.hikari', 'com.hyperperms.lib.hikari'

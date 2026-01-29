@@ -81,6 +81,7 @@ public class HyperPermsCommand extends AbstractCommand {
         addSubCommand(new BackupSubCommand(hyperPerms));
         addSubCommand(new ExportSubCommand(hyperPerms));
         addSubCommand(new ImportSubCommand(hyperPerms));
+        addSubCommand(new com.hyperperms.commands.MigrateSubCommand(hyperPerms));
         addSubCommand(new ReloadSubCommand(hyperPerms));
         addSubCommand(new ResetGroupsSubCommand(hyperPerms));
 
