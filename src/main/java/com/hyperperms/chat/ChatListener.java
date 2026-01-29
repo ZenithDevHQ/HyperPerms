@@ -61,24 +61,47 @@ public class ChatListener {
     }
     
     /**
+     * Checks if HyFactions plugin is installed.
+     * Used to determine event priority - when HyFactions is present,
+     * we run LAST to wrap its formatter instead of FIRST.
+     *
+     * @return true if HyFactions is installed
+     */
+    private static boolean isHyFactionsInstalled() {
+        try {
+            Class.forName("com.kaws.hyfaction.Main");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
      * Registers the chat event listener with the Hytale event registry.
      *
      * @param eventRegistry the event registry
      */
     public void register(@NotNull EventRegistry eventRegistry) {
         Objects.requireNonNull(eventRegistry, "eventRegistry cannot be null");
-        
-        // Register as async GLOBAL handler since we may need to load data
-        // and we want to handle ALL chat events regardless of key
-        // Use FIRST priority to run BEFORE other chat plugins (like WerChat)
-        // We'll store our prefix data for other plugins to use
+
+        // Determine priority based on HyFactions presence
+        // If HyFactions is installed, run LAST to wrap its formatter
+        // Otherwise, run FIRST to set up formatting before other plugins
+        EventPriority priority;
+        if (isHyFactionsInstalled()) {
+            priority = EventPriority.LAST;
+            Logger.info("HyFactions detected - using LAST priority to wrap its chat formatter");
+        } else {
+            priority = EventPriority.FIRST;
+        }
+
         chatEventRegistration = eventRegistry.registerAsyncGlobal(
-            EventPriority.FIRST,
+            priority,
             PlayerChatEvent.class,
             this::onPlayerChatAsync
         );
-        
-        Logger.info("Chat listener registered");
+
+        Logger.info("Chat listener registered with priority: " + priority);
     }
     
     /**
@@ -133,13 +156,18 @@ public class ChatListener {
                 // Format the chat message
                 return chatManager.formatChatMessage(uuid, playerName, processedContent)
                     .thenApply(formattedMessage -> {
-                        // Check if another plugin (like WerChat) already set a formatter
+                        // Check if another plugin already set a formatter
                         PlayerChatEvent.Formatter existingFormatter = event.getFormatter();
                         boolean hasCustomFormatter = existingFormatter != null
                             && existingFormatter != PlayerChatEvent.DEFAULT_FORMATTER;
 
-                        if (hasCustomFormatter) {
-                            // Wrap the existing formatter to inject our prefix/suffix
+                        // If HyFactions is installed, use our own formatter directly
+                        // (FactionIntegration already includes faction prefix in our formatted message)
+                        // This gives us full control over colors and formatting
+                        if (isHyFactionsInstalled()) {
+                            event.setFormatter(new HyperPermsFormatter(formattedMessage));
+                        } else if (hasCustomFormatter) {
+                            // Wrap other formatters (like WerChat) to inject our prefix/suffix
                             event.setFormatter(new WrappingFormatter(existingFormatter, formattedMessage));
                         } else {
                             // No other formatter - use our full formatter
@@ -557,57 +585,52 @@ public class ChatListener {
         @Override
         public Message format(PlayerRef sender, String content) {
             try {
-                // Get the prefix and suffix from HyperPerms
+                // Get the prefix from HyperPerms
                 String prefix = formattedMessage.getPrefix();
-                String suffix = formattedMessage.getSuffix();
 
-                // Let the wrapped formatter (e.g., WerChat) format the message
+                // Let the wrapped formatter (e.g., HyFactions) format the message
                 Message wrappedResult = wrapped.format(sender, content);
-                
+
                 if (wrappedResult == null) {
                     Logger.warn("[Chat] Wrapped formatter returned null");
                     return Message.raw(sender.getUsername() + ": " + content);
                 }
-                
-                // If we have no prefix/suffix, just return the wrapped result
-                if ((prefix == null || prefix.isEmpty()) && (suffix == null || suffix.isEmpty())) {
+
+                // If we have no prefix, just return the wrapped result
+                if (prefix == null || prefix.isEmpty()) {
                     return wrappedResult;
                 }
-                
-                // Build the final message: wrapped output (channel) + prefix + rest
-                // WerChat outputs: [Global] PlayerName: message
-                // We want: [Global][Owner] PlayerName: message
-                // So we need to inject prefix after the channel tag
-                
-                // Get the raw text to find where to inject
+
+                // Try to get raw text to inject prefix before player name
                 String wrappedText = wrappedResult.getRawText();
-                
-                if (wrappedText != null && prefix != null && !prefix.isEmpty()) {
-                    // Find the player name in the wrapped output
-                    String playerName = sender.getUsername();
+                String playerName = sender.getUsername();
+                String prefixStr = ColorUtil.colorize(prefix);
+
+                // Add space after prefix if needed
+                if (!prefixStr.endsWith(" ")) {
+                    prefixStr = prefixStr + " ";
+                }
+
+                if (wrappedText != null && !wrappedText.isEmpty()) {
                     int playerNameIndex = wrappedText.indexOf(playerName);
-                    
-                    if (playerNameIndex > 0) {
+
+                    if (playerNameIndex >= 0) {
                         // Insert prefix right before the player name
-                        // This turns "[Global] Player:" into "[Global][Owner] Player:"
+                        // "[Testing] Zenithus:" -> "[Testing] [Admin] Zenithus:"
                         String before = wrappedText.substring(0, playerNameIndex);
                         String after = wrappedText.substring(playerNameIndex);
-                        String newText = before + ColorUtil.colorize(prefix) + after;
+                        String newText = before + prefixStr + after;
                         return toHytaleMessage(newText);
                     }
                 }
-                
-                // Fallback: just append prefix after wrapped result
-                if (prefix != null && !prefix.isEmpty()) {
-                    Message prefixMsg = toHytaleMessage(ColorUtil.colorize(prefix));
-                    return Message.join(wrappedResult, prefixMsg);
-                }
-                
-                return wrappedResult;
+
+                // Fallback: prepend prefix, then wrapped result
+                // Result: "[Admin] [Testing] Zenithus: msg" (not ideal order but both visible)
+                Message prefixMsg = toHytaleMessage(prefixStr);
+                return Message.join(prefixMsg, wrappedResult);
             } catch (Exception e) {
                 Logger.warn("[Chat] Error in wrapping formatter: " + e.getMessage());
                 e.printStackTrace();
-                // Fallback to wrapped result or simple format
                 try {
                     return wrapped.format(sender, content);
                 } catch (Exception e2) {
