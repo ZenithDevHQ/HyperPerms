@@ -77,12 +77,38 @@ public class ChatListener {
     }
 
     /**
+     * Checks if Werchat plugin is installed.
+     * When Werchat is present, it handles chat formatting itself by calling
+     * HyperPerms' ChatAPI. We skip setting a formatter to avoid race conditions.
+     *
+     * @return true if Werchat is installed
+     */
+    private static boolean isWerchatInstalled() {
+        try {
+            Class.forName("com.werchat.WerchatPlugin");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
      * Registers the chat event listener with the Hytale event registry.
      *
      * @param eventRegistry the event registry
      */
     public void register(@NotNull EventRegistry eventRegistry) {
         Objects.requireNonNull(eventRegistry, "eventRegistry cannot be null");
+
+        // Check for Werchat first - if installed, it handles chat via ChatAPI
+        // We don't need to register a formatter since Werchat cancels the event
+        // and broadcasts manually using ChatAPI.getPrefix/getSuffix
+        if (isWerchatInstalled()) {
+            Logger.info("Werchat detected - HyperPerms will provide prefix/suffix via ChatAPI only");
+            Logger.info("Chat formatting will be handled by Werchat");
+            // Don't register a chat listener - let Werchat handle everything
+            return;
+        }
 
         // Determine priority based on HyFactions presence
         // If HyFactions is installed, run LAST to wrap its formatter
@@ -245,6 +271,12 @@ public class ChatListener {
      * Converts a HyperPerms formatted string to a Hytale Message.
      * Uses Hytale's native Message.color() API for proper color support.
      *
+     * Supports:
+     * - Legacy color codes: §0-9, §a-f
+     * - Hex colors: §x§R§R§G§G§B§B format
+     * - Format codes: §l (bold), §o (italic), §n (underline), §m (strikethrough)
+     * - Reset: §r
+     *
      * @param formatted the formatted string with color codes
      * @return a Hytale Message object
      */
@@ -253,7 +285,7 @@ public class ChatListener {
         if (formatted == null || formatted.isEmpty()) {
             return Message.raw("");
         }
-        
+
         try {
             // Parse § codes and build Message with proper colors
             Message result = null;
@@ -261,249 +293,168 @@ public class ChatListener {
             Color currentColor = null;
             boolean bold = false;
             boolean italic = false;
-            
+            boolean underline = false;
+            boolean strikethrough = false;
+
             int i = 0;
             while (i < formatted.length()) {
                 char c = formatted.charAt(i);
-                
+
                 // Check for color/format code (§X)
                 if (c == '§' && i + 1 < formatted.length()) {
-                    // Flush current segment before changing format
-                    if (currentText.length() > 0) {
-                        Message segment = Message.raw(currentText.toString());
-                        if (currentColor != null) {
-                            segment = segment.color(currentColor);
-                        }
-                        if (bold) {
-                            segment = segment.bold(true);
-                        }
-                        if (italic) {
-                            segment = segment.italic(true);
-                        }
-                        result = (result == null) ? segment : Message.join(result, segment);
-                        currentText.setLength(0);
-                    }
-                    
                     char code = Character.toLowerCase(formatted.charAt(i + 1));
-                    
+
+                    // Check for hex color format: §x§R§R§G§G§B§B (14 characters total)
+                    if (code == 'x' && i + 13 < formatted.length()) {
+                        // Try to parse hex color
+                        Color hexColor = parseHexColorCode(formatted, i);
+                        if (hexColor != null) {
+                            // Flush current segment before changing color
+                            if (currentText.length() > 0) {
+                                result = appendMessageSegment(result, currentText.toString(),
+                                    currentColor, bold, italic, underline, strikethrough);
+                                currentText.setLength(0);
+                            }
+                            currentColor = hexColor;
+                            bold = false;
+                            italic = false;
+                            underline = false;
+                            strikethrough = false;
+                            i += 14; // Skip §x§R§R§G§G§B§B
+                            continue;
+                        }
+                    }
+
+                    // Flush current segment before changing format (for colors and reset)
+                    if (isColorCode(code) || code == 'r') {
+                        if (currentText.length() > 0) {
+                            result = appendMessageSegment(result, currentText.toString(),
+                                currentColor, bold, italic, underline, strikethrough);
+                            currentText.setLength(0);
+                        }
+                    }
+
                     // Handle the code
                     switch (code) {
                         // Colors (reset format flags like Minecraft)
-                        case '0' -> { currentColor = new Color(0x000000); bold = false; italic = false; }
-                        case '1' -> { currentColor = new Color(0x0000AA); bold = false; italic = false; }
-                        case '2' -> { currentColor = new Color(0x00AA00); bold = false; italic = false; }
-                        case '3' -> { currentColor = new Color(0x00AAAA); bold = false; italic = false; }
-                        case '4' -> { currentColor = new Color(0xAA0000); bold = false; italic = false; }
-                        case '5' -> { currentColor = new Color(0xAA00AA); bold = false; italic = false; }
-                        case '6' -> { currentColor = new Color(0xFFAA00); bold = false; italic = false; }
-                        case '7' -> { currentColor = new Color(0xAAAAAA); bold = false; italic = false; }
-                        case '8' -> { currentColor = new Color(0x555555); bold = false; italic = false; }
-                        case '9' -> { currentColor = new Color(0x5555FF); bold = false; italic = false; }
-                        case 'a' -> { currentColor = new Color(0x55FF55); bold = false; italic = false; }
-                        case 'b' -> { currentColor = new Color(0x55FFFF); bold = false; italic = false; }
-                        case 'c' -> { currentColor = new Color(0xFF5555); bold = false; italic = false; }
-                        case 'd' -> { currentColor = new Color(0xFF55FF); bold = false; italic = false; }
-                        case 'e' -> { currentColor = new Color(0xFFFF55); bold = false; italic = false; }
-                        case 'f' -> { currentColor = new Color(0xFFFFFF); bold = false; italic = false; }
-                        // Formats
+                        case '0' -> { currentColor = new Color(0x000000); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '1' -> { currentColor = new Color(0x0000AA); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '2' -> { currentColor = new Color(0x00AA00); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '3' -> { currentColor = new Color(0x00AAAA); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '4' -> { currentColor = new Color(0xAA0000); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '5' -> { currentColor = new Color(0xAA00AA); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '6' -> { currentColor = new Color(0xFFAA00); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '7' -> { currentColor = new Color(0xAAAAAA); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '8' -> { currentColor = new Color(0x555555); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case '9' -> { currentColor = new Color(0x5555FF); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case 'a' -> { currentColor = new Color(0x55FF55); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case 'b' -> { currentColor = new Color(0x55FFFF); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case 'c' -> { currentColor = new Color(0xFF5555); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case 'd' -> { currentColor = new Color(0xFF55FF); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case 'e' -> { currentColor = new Color(0xFFFF55); bold = false; italic = false; underline = false; strikethrough = false; }
+                        case 'f' -> { currentColor = new Color(0xFFFFFF); bold = false; italic = false; underline = false; strikethrough = false; }
+                        // Formats (don't flush, just set flag)
                         case 'l' -> bold = true;
                         case 'o' -> italic = true;
+                        case 'n' -> underline = true;
+                        case 'm' -> strikethrough = true;
+                        case 'k' -> { } // Obfuscated - not supported by Hytale, skip
                         // Reset
-                        case 'r' -> { currentColor = null; bold = false; italic = false; }
+                        case 'r' -> { currentColor = null; bold = false; italic = false; underline = false; strikethrough = false; }
                         // Unknown - skip
                         default -> { }
                     }
-                    
+
                     i += 2;
                     continue;
                 }
-                
+
                 // Regular character
                 currentText.append(c);
                 i++;
             }
-            
+
             // Flush remaining segment
             if (currentText.length() > 0) {
-                Message segment = Message.raw(currentText.toString());
-                if (currentColor != null) {
-                    segment = segment.color(currentColor);
-                }
-                if (bold) {
-                    segment = segment.bold(true);
-                }
-                if (italic) {
-                    segment = segment.italic(true);
-                }
-                result = (result == null) ? segment : Message.join(result, segment);
+                result = appendMessageSegment(result, currentText.toString(),
+                    currentColor, bold, italic, underline, strikethrough);
             }
-            
+
             return result != null ? result : Message.raw("");
         } catch (Exception e) {
             Logger.warn("[Chat] Failed to parse colors, using stripped: " + e.getMessage());
             return Message.raw(ColorUtil.stripColors(formatted));
         }
     }
-    
+
     /**
-     * Parses a formatted string with color codes into a Hytale Message.
+     * Parses a hex color code in the format §x§R§R§G§G§B§B starting at the given index.
+     *
+     * @param text the text containing the hex color code
+     * @param startIndex the index of the first § character
+     * @return the parsed Color, or null if invalid format
      */
-    private static Message parseFormattedString(@NotNull String formatted) {
-        // State tracking
-        StringBuilder currentSegment = new StringBuilder();
-        Message result = Message.empty();
-        
-        Color currentColor = null;
-        boolean bold = false;
-        boolean italic = false;
-        boolean underline = false;
-        boolean strikethrough = false;
-        boolean magic = false; // Obfuscated
-        
-        int i = 0;
-        while (i < formatted.length()) {
-            char c = formatted.charAt(i);
-            
-            // Check for hex color (§x§r§r§g§g§b§b)
-            if (c == '§' && i + 13 < formatted.length() && formatted.charAt(i + 1) == 'x') {
-                // Flush current segment
-                if (currentSegment.length() > 0) {
-                    result = appendSegment(result, currentSegment.toString(), currentColor, bold, italic);
-                    currentSegment.setLength(0);
-                }
-                
-                // Parse hex color
-                try {
-                    StringBuilder hex = new StringBuilder("#");
-                    for (int j = 0; j < 6; j++) {
-                        int idx = i + 2 + (j * 2) + 1; // Skip §x and then each §
-                        hex.append(formatted.charAt(idx));
-                    }
-                    currentColor = Color.decode(hex.toString());
-                    i += 14; // Skip §x§r§r§g§g§b§b
-                    continue;
-                } catch (Exception e) {
-                    // Fall through to normal processing
-                }
-            }
-            
-            // Check for simple hex (#RRGGBB) - shouldn't normally be here but just in case
-            if (c == '#' && i + 6 < formatted.length()) {
-                String possibleHex = formatted.substring(i, i + 7);
-                if (SIMPLE_HEX_PATTERN.matcher(possibleHex).matches()) {
-                    // Flush current segment
-                    if (currentSegment.length() > 0) {
-                        result = appendSegment(result, currentSegment.toString(), currentColor, bold, italic);
-                        currentSegment.setLength(0);
-                    }
-                    
-                    try {
-                        currentColor = Color.decode(possibleHex);
-                        i += 7;
-                        continue;
-                    } catch (Exception e) {
-                        // Fall through
-                    }
-                }
-            }
-            
-            // Check for standard color/format code (§X)
-            if (c == '§' && i + 1 < formatted.length()) {
-                char code = Character.toLowerCase(formatted.charAt(i + 1));
-                
-                // Flush current segment before applying new format
-                if (currentSegment.length() > 0 && (isColorCode(code) || code == 'r')) {
-                    result = appendSegment(result, currentSegment.toString(), currentColor, bold, italic);
-                    currentSegment.setLength(0);
-                }
-                
-                // Handle the code
-                switch (code) {
-                    // Colors
-                    case '0': currentColor = new Color(0x000000); resetFormats(); break;
-                    case '1': currentColor = new Color(0x0000AA); resetFormats(); break;
-                    case '2': currentColor = new Color(0x00AA00); resetFormats(); break;
-                    case '3': currentColor = new Color(0x00AAAA); resetFormats(); break;
-                    case '4': currentColor = new Color(0xAA0000); resetFormats(); break;
-                    case '5': currentColor = new Color(0xAA00AA); resetFormats(); break;
-                    case '6': currentColor = new Color(0xFFAA00); resetFormats(); break;
-                    case '7': currentColor = new Color(0xAAAAAA); resetFormats(); break;
-                    case '8': currentColor = new Color(0x555555); resetFormats(); break;
-                    case '9': currentColor = new Color(0x5555FF); resetFormats(); break;
-                    case 'a': currentColor = new Color(0x55FF55); resetFormats(); break;
-                    case 'b': currentColor = new Color(0x55FFFF); resetFormats(); break;
-                    case 'c': currentColor = new Color(0xFF5555); resetFormats(); break;
-                    case 'd': currentColor = new Color(0xFF55FF); resetFormats(); break;
-                    case 'e': currentColor = new Color(0xFFFF55); resetFormats(); break;
-                    case 'f': currentColor = new Color(0xFFFFFF); resetFormats(); break;
-                    
-                    // Formats
-                    case 'k': magic = true; break;
-                    case 'l': bold = true; break;
-                    case 'm': strikethrough = true; break;
-                    case 'n': underline = true; break;
-                    case 'o': italic = true; break;
-                    
-                    // Reset
-                    case 'r':
-                        currentColor = null;
-                        bold = italic = underline = strikethrough = magic = false;
-                        break;
-                    
-                    default:
-                        // Unknown code, include literally
-                        currentSegment.append(c).append(formatted.charAt(i + 1));
-                        break;
-                }
-                
-                i += 2;
-                continue;
-            }
-            
-            // Regular character
-            currentSegment.append(c);
-            i++;
+    @Nullable
+    private static Color parseHexColorCode(@NotNull String text, int startIndex) {
+        // Need at least 14 characters: §x§R§R§G§G§B§B
+        if (startIndex + 13 >= text.length()) {
+            return null;
         }
-        
-        // Flush remaining segment
-        if (currentSegment.length() > 0) {
-            result = appendSegment(result, currentSegment.toString(), currentColor, bold, italic);
+
+        // Verify the format: §x followed by 6 pairs of §[hex digit]
+        if (text.charAt(startIndex) != '§' ||
+            Character.toLowerCase(text.charAt(startIndex + 1)) != 'x') {
+            return null;
         }
-        
-        return result;
+
+        StringBuilder hexBuilder = new StringBuilder();
+        for (int j = 0; j < 6; j++) {
+            int pairIndex = startIndex + 2 + (j * 2);
+            if (text.charAt(pairIndex) != '§') {
+                return null;
+            }
+            char hexDigit = text.charAt(pairIndex + 1);
+            if (!isHexDigit(hexDigit)) {
+                return null;
+            }
+            hexBuilder.append(hexDigit);
+        }
+
+        try {
+            int rgb = Integer.parseInt(hexBuilder.toString(), 16);
+            return new Color(rgb);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
-    
+
     /**
-     * Helper method to reset format flags (can't actually use in static context,
-     * but leaving for clarity - the actual implementation handles this inline).
+     * Checks if a character is a hex digit (0-9, a-f, A-F).
      */
-    private static void resetFormats() {
-        // This is handled inline in the switch statement
+    private static boolean isHexDigit(char c) {
+        return (c >= '0' && c <= '9') ||
+               (c >= 'a' && c <= 'f') ||
+               (c >= 'A' && c <= 'F');
     }
-    
+
     /**
-     * Checks if a character is a color code (0-9, a-f).
+     * Appends a text segment to a Message with the given styling.
      */
-    private static boolean isColorCode(char c) {
-        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
-    }
-    
-    /**
-     * Appends a text segment to the message with styling.
-     */
-    private static Message appendSegment(
-            @NotNull Message base,
+    @NotNull
+    private static Message appendMessageSegment(
+            @Nullable Message existing,
             @NotNull String text,
             @Nullable Color color,
             boolean bold,
-            boolean italic) {
-        
+            boolean italic,
+            boolean underline,
+            boolean strikethrough) {
+
         if (text.isEmpty()) {
-            return base;
+            return existing != null ? existing : Message.raw("");
         }
-        
+
         Message segment = Message.raw(text);
-        
         if (color != null) {
             segment = segment.color(color);
         }
@@ -513,15 +464,19 @@ public class ChatListener {
         if (italic) {
             segment = segment.italic(true);
         }
-        
-        // Join with existing message - handle null from getRawText()
-        String baseText = base.getRawText();
-        if (baseText == null || baseText.isEmpty()) {
-            return segment;
-        }
-        return Message.join(base, segment);
+        // Note: underline and strikethrough may not be supported by Hytale's Message API
+        // If they are supported in the future, add: segment = segment.underline(true), etc.
+
+        return existing == null ? segment : Message.join(existing, segment);
     }
     
+    /**
+     * Checks if a character is a color code (0-9, a-f).
+     */
+    private static boolean isColorCode(char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+    }
+
     // ========== Inner Classes ==========
     
     /**

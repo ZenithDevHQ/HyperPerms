@@ -98,6 +98,67 @@ public final class ChatAPI {
         }
         return "default";
     }
+
+    /**
+     * Gets the raw (uncolorized) prefix for a player.
+     * <p>
+     * This returns the prefix with original color codes (e.g., {@code &c[Admin] })
+     * rather than the processed format ({@code §c[Admin] }).
+     * <p>
+     * Useful for plugins that want to handle color processing themselves.
+     *
+     * @param uuid the player's UUID
+     * @return the raw prefix string, or empty string if not available
+     */
+    @NotNull
+    public static String getRawPrefix(@NotNull UUID uuid) {
+        HyperPerms hp = HyperPerms.getInstance();
+        if (hp == null || hp.getChatManager() == null) {
+            return "";
+        }
+
+        // Get the prefix from the resolver without color processing
+        try {
+            return hp.getChatManager().getPrefixSuffixResolver()
+                .newResolverBuilder()
+                .forUuid(uuid)
+                .processColors(false)
+                .resolve()
+                .get(SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .getPrefix();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * Gets the raw (uncolorized) suffix for a player.
+     * <p>
+     * This returns the suffix with original color codes rather than processed format.
+     *
+     * @param uuid the player's UUID
+     * @return the raw suffix string, or empty string if not available
+     */
+    @NotNull
+    public static String getRawSuffix(@NotNull UUID uuid) {
+        HyperPerms hp = HyperPerms.getInstance();
+        if (hp == null || hp.getChatManager() == null) {
+            return "";
+        }
+
+        // Get the suffix from the resolver without color processing
+        try {
+            return hp.getChatManager().getPrefixSuffixResolver()
+                .newResolverBuilder()
+                .forUuid(uuid)
+                .processColors(false)
+                .resolve()
+                .get(SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .getSuffix();
+        } catch (Exception e) {
+            return "";
+        }
+    }
     
     /**
      * Gets the prefix asynchronously.
