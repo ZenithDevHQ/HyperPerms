@@ -91,6 +91,10 @@ public final class HyperPerms implements HyperPermsAPI {
     @Nullable
     private UpdateChecker updateChecker;
 
+    // Update notification preferences
+    @Nullable
+    private com.hyperperms.update.UpdateNotificationPreferences notificationPreferences;
+
     // Managers
     private UserManagerImpl userManager;
     private GroupManagerImpl groupManager;
@@ -265,6 +269,10 @@ public final class HyperPerms implements HyperPermsAPI {
                     }
                 });
             }
+
+            // Initialize update notification preferences
+            notificationPreferences = new com.hyperperms.update.UpdateNotificationPreferences(dataDirectory);
+            notificationPreferences.load();
 
             // Start scheduled tasks
             scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -840,6 +848,19 @@ public final class HyperPerms implements HyperPermsAPI {
     @Nullable
     public UpdateChecker getUpdateChecker() {
         return updateChecker;
+    }
+
+    /**
+     * Gets the update notification preferences.
+     * <p>
+     * The notification preferences track which players want to receive
+     * update notifications on join.
+     *
+     * @return the notification preferences, or null if not yet initialized
+     */
+    @Nullable
+    public com.hyperperms.update.UpdateNotificationPreferences getNotificationPreferences() {
+        return notificationPreferences;
     }
 
     /**

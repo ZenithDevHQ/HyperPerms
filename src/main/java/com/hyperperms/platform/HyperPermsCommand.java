@@ -97,6 +97,10 @@ public class HyperPermsCommand extends AbstractCommand {
             addSubCommand(new com.hyperperms.commands.ApplySubCommand(hyperPerms, hyperPerms.getWebEditorService()));
         }
 
+        // Update commands
+        addSubCommand(new com.hyperperms.commands.UpdateSubCommand(hyperPerms));
+        addSubCommand(new com.hyperperms.commands.UpdatesSubCommand(hyperPerms));
+
         // Add aliases
         addAliases("hyperperms", "perms");
     }

@@ -31,6 +31,7 @@ public class HyperPermsPlugin extends JavaPlugin {
     private HytaleAdapter adapter;
     private com.hyperperms.chat.ChatListener chatListener;
     private com.hyperperms.tablist.TabListListener tabListListener;
+    private com.hyperperms.update.UpdateNotificationListener updateNotificationListener;
     private volatile boolean shuttingDown = false;
 
     /**
@@ -100,6 +101,15 @@ public class HyperPermsPlugin extends JavaPlugin {
                 tabListListener.unregister(getEventRegistry());
             } catch (Exception e) {
                 getLogger().at(Level.WARNING).withCause(e).log("Failed to unregister tab list listener");
+            }
+        }
+
+        // Unregister update notification listener
+        if (updateNotificationListener != null) {
+            try {
+                updateNotificationListener.unregister(getEventRegistry());
+            } catch (Exception e) {
+                getLogger().at(Level.WARNING).withCause(e).log("Failed to unregister update notification listener");
             }
         }
 
@@ -183,6 +193,9 @@ public class HyperPermsPlugin extends JavaPlugin {
         // Register tab list listener (if tab list formatting is enabled)
         registerTabListListener();
 
+        // Register update notification listener
+        registerUpdateNotificationListener();
+
         getLogger().at(Level.INFO).log("Registered event listeners");
     }
 
@@ -227,6 +240,24 @@ public class HyperPermsPlugin extends JavaPlugin {
             }
         } catch (Exception e) {
             getLogger().at(Level.WARNING).withCause(e).log("Failed to register tab list listener");
+        }
+    }
+
+    /**
+     * Registers the update notification listener for notifying operators about updates.
+     */
+    private void registerUpdateNotificationListener() {
+        try {
+            // Only register if update checking is enabled
+            if (hyperPerms.getUpdateChecker() != null) {
+                updateNotificationListener = new com.hyperperms.update.UpdateNotificationListener(hyperPerms);
+                updateNotificationListener.register(getEventRegistry());
+                getLogger().at(Level.INFO).log("Update notification listener enabled");
+            } else {
+                getLogger().at(Level.INFO).log("Update notifications disabled (update checking is disabled)");
+            }
+        } catch (Exception e) {
+            getLogger().at(Level.WARNING).withCause(e).log("Failed to register update notification listener");
         }
     }
 
