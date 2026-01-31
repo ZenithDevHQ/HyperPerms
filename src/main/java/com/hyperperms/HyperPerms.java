@@ -208,8 +208,10 @@ public final class HyperPerms implements HyperPermsAPI {
 
             // Initialize runtime permission discovery
             Logger.info("[Discovery] Initializing runtime permission discovery...");
-            Path modsDir = Path.of(System.getProperty("user.home"), "Documents", "Hytale", "mods");
-            runtimeDiscovery = new RuntimePermissionDiscovery(dataDirectory, modsDir);
+            // Derive plugins directory from dataDirectory (mods/com.hyperperms_HyperPerms/data -> mods/)
+            // Also supports "plugins" folder name for compatibility
+            Path pluginsDir = resolvePluginsDirectory(dataDirectory);
+            runtimeDiscovery = new RuntimePermissionDiscovery(dataDirectory, pluginsDir);
             runtimeDiscovery.load();
             java.util.Set<String> installedPlugins = runtimeDiscovery.scanInstalledPlugins();
             runtimeDiscovery.buildNamespaceMapping();
@@ -871,5 +873,63 @@ public final class HyperPerms implements HyperPermsAPI {
     @NotNull
     public Path getDataDirectory() {
         return dataDirectory;
+    }
+
+    /**
+     * Resolves the plugins/mods directory from the data directory.
+     * Supports both "mods" and "plugins" folder names for compatibility.
+     * Logs warnings if the folder structure is unexpected.
+     *
+     * @param dataDirectory the plugin's data directory
+     * @return the resolved plugins directory path
+     */
+    @NotNull
+    private Path resolvePluginsDirectory(@NotNull Path dataDirectory) {
+        // Try to derive from dataDirectory structure: mods/com.hyperperms_HyperPerms/data -> mods/
+        Path derivedDir = null;
+        if (dataDirectory.getParent() != null && dataDirectory.getParent().getParent() != null) {
+            derivedDir = dataDirectory.getParent().getParent();
+        }
+
+        if (derivedDir != null && java.nio.file.Files.isDirectory(derivedDir)) {
+            String dirName = derivedDir.getFileName().toString().toLowerCase();
+            if (dirName.equals("mods") || dirName.equals("plugins")) {
+                Logger.debug("[Discovery] Using plugins directory: %s", derivedDir.toAbsolutePath());
+                return derivedDir;
+            } else {
+                // Directory exists but has unexpected name
+                Logger.warn("[Discovery] Plugin folder has unexpected name '%s'. Expected 'mods' or 'plugins'.", 
+                    derivedDir.getFileName().toString());
+                Logger.warn("[Discovery] Plugin discovery will still scan '%s', but consider renaming to 'mods' or 'plugins'.",
+                    derivedDir.toAbsolutePath());
+                return derivedDir;
+            }
+        }
+
+        // Fallback: try to find mods or plugins in working directory
+        Path workingDir = Path.of("").toAbsolutePath();
+        Path modsDir = workingDir.resolve("mods");
+        Path pluginsDir = workingDir.resolve("plugins");
+
+        if (java.nio.file.Files.isDirectory(modsDir)) {
+            Logger.debug("[Discovery] Using mods directory: %s", modsDir);
+            return modsDir;
+        } else if (java.nio.file.Files.isDirectory(pluginsDir)) {
+            Logger.debug("[Discovery] Using plugins directory: %s", pluginsDir);
+            return pluginsDir;
+        }
+
+        // Neither exists - log warning and return default
+        Logger.warn("[Discovery] Could not find 'mods' or 'plugins' directory!");
+        Logger.warn("[Discovery] Checked locations:");
+        if (derivedDir != null) {
+            Logger.warn("[Discovery]   - Derived: %s (does not exist)", derivedDir.toAbsolutePath());
+        }
+        Logger.warn("[Discovery]   - %s (does not exist)", modsDir);
+        Logger.warn("[Discovery]   - %s (does not exist)", pluginsDir);
+        Logger.warn("[Discovery] Plugin permission discovery will be limited. Please ensure your plugins are in a 'mods' or 'plugins' folder.");
+        
+        // Return mods as default even if it doesn't exist
+        return modsDir;
     }
 }
