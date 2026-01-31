@@ -67,10 +67,8 @@ public class HyperPermsPermissionSet extends AbstractSet<String> {
             // When Hytale checks set.contains("-kick.use"), it's asking "is kick.use denied?"
             if (permission.startsWith("-")) {
                 String actualPerm = permission.substring(1);
-                // Record the actual permission (not the negation-prefixed one) for discovery
                 recordPermission(actualPerm);
-                // Check if this permission is explicitly DENIED (negated)
-                User user = hyperPerms.getUserManager().getUser(uuid);
+                User user = getOrLoadUser();
                 if (user == null) {
                     return false;
                 }
@@ -83,7 +81,7 @@ public class HyperPermsPermissionSet extends AbstractSet<String> {
             recordPermission(permission);
 
             // Normal permission check - delegate to resolver for full tristate handling
-            User user = hyperPerms.getUserManager().getUser(uuid);
+            User user = getOrLoadUser();
             if (user != null) {
                 ContextSet contexts = hyperPerms.getContexts(uuid);
                 TriState state = hyperPerms.getResolver().check(user, permission, contexts);
@@ -92,6 +90,27 @@ public class HyperPermsPermissionSet extends AbstractSet<String> {
             return hyperPerms.hasPermission(uuid, permission);
         }
         return false;
+    }
+
+    /**
+     * Gets the user from memory, or loads them synchronously if not present.
+     * This ensures permission checks work even during early initialization.
+     *
+     * @return the user, or null if loading failed
+     */
+    private User getOrLoadUser() {
+        User user = hyperPerms.getUserManager().getUser(uuid);
+        if (user == null) {
+            // User not in memory - load synchronously
+            try {
+                var loadResult = hyperPerms.getUserManager().loadUser(uuid).join();
+                user = loadResult.orElseGet(() -> hyperPerms.getUserManager().getOrCreateUser(uuid));
+            } catch (Exception e) {
+                // If loading fails, create a default user
+                user = hyperPerms.getUserManager().getOrCreateUser(uuid);
+            }
+        }
+        return user;
     }
 
     /**
