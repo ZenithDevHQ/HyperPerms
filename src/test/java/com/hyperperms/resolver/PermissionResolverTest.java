@@ -38,8 +38,8 @@ class PermissionResolverTest {
         User user = new User(UUID.randomUUID(), "Test");
         user.addNode(Node.of("test.permission"));
 
-        assertTrue(resolver.hasPermission(user, "test.permission", ContextSet.empty()));
-        assertFalse(resolver.hasPermission(user, "other.permission", ContextSet.empty()));
+        assertTrue(resolver.check(user, "test.permission", ContextSet.empty()).asBoolean());
+        assertFalse(resolver.check(user, "other.permission", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -50,7 +50,7 @@ class PermissionResolverTest {
         User user = new User(UUID.randomUUID(), "Test");
         user.setPrimaryGroup("default");
 
-        assertTrue(resolver.hasPermission(user, "default.permission", ContextSet.empty()));
+        assertTrue(resolver.check(user, "default.permission", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -65,8 +65,8 @@ class PermissionResolverTest {
         user.setPrimaryGroup("default");
         user.addGroup("vip");
 
-        assertTrue(resolver.hasPermission(user, "default.permission", ContextSet.empty()));
-        assertTrue(resolver.hasPermission(user, "vip.permission", ContextSet.empty()));
+        assertTrue(resolver.check(user, "default.permission", ContextSet.empty()).asBoolean());
+        assertTrue(resolver.check(user, "vip.permission", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -82,8 +82,8 @@ class PermissionResolverTest {
         user.setPrimaryGroup("vip");
 
         // User should have both default and vip permissions
-        assertTrue(resolver.hasPermission(user, "default.permission", ContextSet.empty()));
-        assertTrue(resolver.hasPermission(user, "vip.permission", ContextSet.empty()));
+        assertTrue(resolver.check(user, "default.permission", ContextSet.empty()).asBoolean());
+        assertTrue(resolver.check(user, "vip.permission", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -99,7 +99,7 @@ class PermissionResolverTest {
         user.addGroup("high");
 
         // High weight should win
-        assertTrue(resolver.hasPermission(user, "test.permission", ContextSet.empty()));
+        assertTrue(resolver.check(user, "test.permission", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -112,7 +112,7 @@ class PermissionResolverTest {
         user.addNode(Node.of("test.permission")); // User grants it
 
         // User's direct permission should override group
-        assertTrue(resolver.hasPermission(user, "test.permission", ContextSet.empty()));
+        assertTrue(resolver.check(user, "test.permission", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -123,9 +123,9 @@ class PermissionResolverTest {
         User user = new User(UUID.randomUUID(), "Test");
         user.setPrimaryGroup("default");
 
-        assertTrue(resolver.hasPermission(user, "myplugin.command", ContextSet.empty()));
-        assertTrue(resolver.hasPermission(user, "myplugin.command.home", ContextSet.empty()));
-        assertFalse(resolver.hasPermission(user, "otherplugin.command", ContextSet.empty()));
+        assertTrue(resolver.check(user, "myplugin.command", ContextSet.empty()).asBoolean());
+        assertTrue(resolver.check(user, "myplugin.command.home", ContextSet.empty()).asBoolean());
+        assertFalse(resolver.check(user, "otherplugin.command", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -141,8 +141,8 @@ class PermissionResolverTest {
         ContextSet creativeContext = ContextSet.of(Context.world("creative"));
         ContextSet survivalContext = ContextSet.of(Context.world("survival"));
 
-        assertTrue(resolver.hasPermission(user, "fly.permission", creativeContext));
-        assertFalse(resolver.hasPermission(user, "fly.permission", survivalContext));
+        assertTrue(resolver.check(user, "fly.permission", creativeContext).asBoolean());
+        assertFalse(resolver.check(user, "fly.permission", survivalContext).asBoolean());
     }
 
     @Test
@@ -188,9 +188,9 @@ class PermissionResolverTest {
         user.addGroup("a");
 
         // Should not stack overflow, should get all permissions
-        assertTrue(resolver.hasPermission(user, "perm.a", ContextSet.empty()));
-        assertTrue(resolver.hasPermission(user, "perm.b", ContextSet.empty()));
-        assertTrue(resolver.hasPermission(user, "perm.c", ContextSet.empty()));
+        assertTrue(resolver.check(user, "perm.a", ContextSet.empty()).asBoolean());
+        assertTrue(resolver.check(user, "perm.b", ContextSet.empty()).asBoolean());
+        assertTrue(resolver.check(user, "perm.c", ContextSet.empty()).asBoolean());
     }
 
     // ==================== P0 Specification Tests ====================
@@ -205,7 +205,7 @@ class PermissionResolverTest {
         user.addNode(Node.builder("fly.use").denied().build()); // -fly.use
 
         // User's explicit denial should override group's grant
-        assertFalse(resolver.hasPermission(user, "fly.use", ContextSet.empty()));
+        assertFalse(resolver.check(user, "fly.use", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -218,11 +218,11 @@ class PermissionResolverTest {
         user.addNode(Node.builder("hytale.command.emote").denied().build());
 
         // Specific negation blocks emote
-        assertFalse(resolver.hasPermission(user, "hytale.command.emote", ContextSet.empty()));
+        assertFalse(resolver.check(user, "hytale.command.emote", ContextSet.empty()).asBoolean());
         // Wildcard still allows other commands
-        assertTrue(resolver.hasPermission(user, "hytale.command.spawn", ContextSet.empty()));
+        assertTrue(resolver.check(user, "hytale.command.spawn", ContextSet.empty()).asBoolean());
         // Nested commands also allowed by .*
-        assertTrue(resolver.hasPermission(user, "hytale.command.home.set", ContextSet.empty()));
+        assertTrue(resolver.check(user, "hytale.command.home.set", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -237,8 +237,8 @@ class PermissionResolverTest {
         ContextSet lobbyContext = ContextSet.of(Context.server("lobby"));
         ContextSet survivalContext = ContextSet.of(Context.server("survival"));
 
-        assertTrue(resolver.hasPermission(user, "fly.use", lobbyContext));
-        assertFalse(resolver.hasPermission(user, "fly.use", survivalContext)); // No permission in survival
+        assertTrue(resolver.check(user, "fly.use", lobbyContext).asBoolean());
+        assertFalse(resolver.check(user, "fly.use", survivalContext).asBoolean()); // No permission in survival
     }
 
     @Test
@@ -254,8 +254,8 @@ class PermissionResolverTest {
                 .build());
 
         // Expired permission should be undefined, fall through to group
-        assertFalse(resolver.hasPermission(user, "fly.use", ContextSet.empty()));
-        assertTrue(resolver.hasPermission(user, "chat.use", ContextSet.empty()));
+        assertFalse(resolver.check(user, "fly.use", ContextSet.empty()).asBoolean());
+        assertTrue(resolver.check(user, "chat.use", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -269,9 +269,9 @@ class PermissionResolverTest {
         // New player has no direct permissions
 
         // Should inherit from default group
-        assertTrue(resolver.hasPermission(user, "chat.use", ContextSet.empty()));
-        assertTrue(resolver.hasPermission(user, "help.use", ContextSet.empty()));
-        assertFalse(resolver.hasPermission(user, "fly.use", ContextSet.empty()));
+        assertTrue(resolver.check(user, "chat.use", ContextSet.empty()).asBoolean());
+        assertTrue(resolver.check(user, "help.use", ContextSet.empty()).asBoolean());
+        assertFalse(resolver.check(user, "fly.use", ContextSet.empty()).asBoolean());
     }
 
     @Test
@@ -287,6 +287,6 @@ class PermissionResolverTest {
         user.addGroup("moderator");
 
         // Builder (weight 90) should win over Moderator (weight 80)
-        assertFalse(resolver.hasPermission(user, "worldedit.use", ContextSet.empty()));
+        assertFalse(resolver.check(user, "worldedit.use", ContextSet.empty()).asBoolean());
     }
 }

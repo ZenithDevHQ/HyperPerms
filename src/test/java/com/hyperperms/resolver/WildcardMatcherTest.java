@@ -44,12 +44,15 @@ class WildcardMatcherTest {
     }
 
     @Test
-    void testNegation() {
+    void testGlobalWildcardWins() {
+        // Hytale resolution order: Global * is checked FIRST
+        // This means ["*", "-plugin.admin"] → plugin.admin = TRUE
         Map<String, Boolean> perms = new HashMap<>();
-        perms.put("*", true); // Grant all
-        perms.put("-plugin.admin", true); // Deny plugin.admin
+        perms.put("*", true); // Grant all - checked FIRST
+        perms.put("-plugin.admin", true); // Deny plugin.admin - never reached
 
-        assertEquals(TriState.FALSE, WildcardMatcher.check("plugin.admin", perms));
+        // Global * wins over everything
+        assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.admin", perms));
         assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.command", perms));
     }
 
@@ -67,15 +70,16 @@ class WildcardMatcherTest {
 
     @Test
     void testNegatedWildcard() {
-        // -plugin.admin.* should deny all under plugin.admin
+        // Hytale resolution order: shortest prefix first
+        // For plugin.admin.bypass, plugin.* (1 part) is checked before -plugin.admin.* (2 parts)
         Map<String, Boolean> perms = new HashMap<>();
         perms.put("plugin.*", true);
         perms.put("-plugin.admin.*", true);
 
-        assertEquals(TriState.FALSE, WildcardMatcher.check("plugin.admin.bypass", perms));
-        assertEquals(TriState.FALSE, WildcardMatcher.check("plugin.admin.debug", perms));
+        // plugin.* wins because it's a shorter prefix than -plugin.admin.*
+        assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.admin.bypass", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.admin.debug", perms));
         assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.command", perms));
-        // plugin.admin itself is NOT denied by -plugin.admin.*
         assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.admin", perms));
     }
 
@@ -89,15 +93,14 @@ class WildcardMatcherTest {
     }
 
     @Test
-    void testExactMatchOverridesNegation() {
-        // Exact positive should override negation at same level
+    void testExactGrantBeforeNegation() {
+        // Hytale resolution order: exact grants are checked before exact negations
         Map<String, Boolean> perms = new HashMap<>();
         perms.put("-plugin.admin", true);
         perms.put("plugin.admin", true);
 
-        // Exact match checked before negation in our priority order
-        assertEquals(TriState.FALSE, WildcardMatcher.check("plugin.admin", perms));
-        // Note: In our implementation, negation is checked FIRST
+        // Exact grant checked before exact negation
+        assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.admin", perms));
     }
 
     @Test
@@ -200,15 +203,15 @@ class WildcardMatcherTest {
     }
 
     @Test
-    void testMultiLevelWildcardPriority() {
-        // More specific wildcard should match before less specific
+    void testShortestPrefixWins() {
+        // Hytale resolution order: shortest prefix first
+        // plugin.* (1 part) is checked before plugin.command.* (2 parts)
         Map<String, Boolean> perms = new HashMap<>();
-        perms.put("plugin.*", false);
-        perms.put("plugin.command.*", true);
+        perms.put("plugin.*", false); // Deny at shorter prefix
+        perms.put("plugin.command.*", true); // Grant at longer prefix
 
-        // plugin.command.home should match plugin.command.* (more specific)
-        assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.command.home", perms));
-        // plugin.admin should match plugin.*
+        // Shortest prefix wins - plugin.* denies first
+        assertEquals(TriState.FALSE, WildcardMatcher.check("plugin.command.home", perms));
         assertEquals(TriState.FALSE, WildcardMatcher.check("plugin.admin", perms));
     }
 
@@ -238,14 +241,83 @@ class WildcardMatcherTest {
 
     @Test
     void testNestedWildcardNegation() {
-        // -essentials.admin.* should deny all admin commands but allow essentials.admin itself
+        // Hytale resolution order: shortest prefix first
+        // essentials.* (1 part) is checked before -essentials.admin.* (2 parts)
         Map<String, Boolean> perms = new HashMap<>();
         perms.put("essentials.*", true);
         perms.put("-essentials.admin.*", true);
 
+        // All should be TRUE because essentials.* (shorter) wins over -essentials.admin.* (longer)
         assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.home", perms));
-        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.admin", perms)); // admin itself allowed
-        assertEquals(TriState.FALSE, WildcardMatcher.check("essentials.admin.bypass", perms));
-        assertEquals(TriState.FALSE, WildcardMatcher.check("essentials.admin.reload", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.admin", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.admin.bypass", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.admin.reload", perms));
+    }
+
+    // ==================== Hytale Resolution Order Tests ====================
+
+    @Test
+    void testGlobalNegationDeniesEverything() {
+        // Global -* denies everything when there's no global *
+        Map<String, Boolean> perms = new HashMap<>();
+        perms.put("-*", true);
+        perms.put("plugin.command", true); // Never reached
+
+        assertEquals(TriState.FALSE, WildcardMatcher.check("plugin.command", perms));
+        assertEquals(TriState.FALSE, WildcardMatcher.check("anything", perms));
+    }
+
+    @Test
+    void testGlobalWildcardBeatsGlobalNegation() {
+        // Global * is checked BEFORE -*, so * wins
+        Map<String, Boolean> perms = new HashMap<>();
+        perms.put("*", true);
+        perms.put("-*", true);
+
+        assertEquals(TriState.TRUE, WildcardMatcher.check("anything", perms));
+    }
+
+    @Test
+    void testExactNegationStillWorksWithoutGlobalWildcard() {
+        // Without global *, exact negations work as expected
+        Map<String, Boolean> perms = new HashMap<>();
+        perms.put("plugin.*", true);
+        perms.put("-plugin.admin", true); // Exact negation
+
+        // Exact negation checked before wildcards, so it wins
+        assertEquals(TriState.FALSE, WildcardMatcher.check("plugin.admin", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("plugin.command", perms));
+    }
+
+    @Test
+    void testToAvoidNegationUseSpecificGrants() {
+        // The correct way to grant everything EXCEPT specific permissions:
+        // Use specific grants instead of global *
+        Map<String, Boolean> perms = new HashMap<>();
+        perms.put("essentials.*", true);
+        perms.put("-essentials.god", true); // Exact negation
+
+        // Works because exact negation is checked before prefix wildcards
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.home", perms));
+        assertEquals(TriState.TRUE, WildcardMatcher.check("essentials.spawn", perms));
+        assertEquals(TriState.FALSE, WildcardMatcher.check("essentials.god", perms)); // Denied
+    }
+
+    @Test
+    void testHytaleResolutionOrderSummary() {
+        // Complete example demonstrating Hytale's resolution order
+        // Order: 1. Global * 2. Global -* 3. Exact 4. Prefix wildcards (shortest first)
+        Map<String, Boolean> perms = new HashMap<>();
+
+        // Without global *, negations work
+        perms.put("admin.*", true);
+        perms.put("-admin.ban", true);
+        assertEquals(TriState.FALSE, WildcardMatcher.check("admin.ban", perms)); // Exact negation
+        assertEquals(TriState.TRUE, WildcardMatcher.check("admin.kick", perms)); // Wildcard grant
+
+        // With global *, everything is granted
+        perms.put("*", true);
+        assertEquals(TriState.TRUE, WildcardMatcher.check("admin.ban", perms)); // Global * wins
+        assertEquals(TriState.TRUE, WildcardMatcher.check("admin.kick", perms));
     }
 }

@@ -10,9 +10,11 @@ import java.util.Objects;
 /**
  * Matches permission nodes against wildcard patterns with negation support.
  * <p>
+ * This implementation follows Hytale's native permission resolution order.
+ * <p>
  * Wildcard patterns:
  * <ul>
- *   <li>{@code *} - matches any permission</li>
+ *   <li>{@code *} - matches any permission (universal grant)</li>
  *   <li>{@code plugin.*} - matches any permission starting with "plugin."</li>
  *   <li>{@code plugin.command.*} - matches "plugin.command.home", etc.</li>
  * </ul>
@@ -21,18 +23,21 @@ import java.util.Objects;
  * <ul>
  *   <li>{@code -plugin.admin} - explicitly denies "plugin.admin"</li>
  *   <li>{@code -plugin.admin.*} - denies all permissions under "plugin.admin."</li>
+ *   <li>{@code -*} - universal negation (denies everything)</li>
  * </ul>
  * <p>
- * Priority order (highest to lowest):
+ * <strong>Resolution Order (Hytale-native):</strong>
  * <ol>
- *   <li>Exact negation (-permission)</li>
- *   <li>Exact match (permission)</li>
- *   <li>Most specific negated wildcard (-prefix.*)</li>
- *   <li>Most specific wildcard (prefix.*)</li>
- *   <li>Less specific wildcards...</li>
- *   <li>Universal negation (-*)</li>
- *   <li>Universal wildcard (*)</li>
+ *   <li>Global wildcard (*) - grants everything, checked FIRST</li>
+ *   <li>Global negation (-*) - denies everything</li>
+ *   <li>Exact permissions (grant checked before deny)</li>
+ *   <li>Prefix wildcards (shortest prefix first: "a.*" before "a.b.*")</li>
  * </ol>
+ * <p>
+ * <strong>Important:</strong> With this resolution order, {@code ["*", "-ban"]} checking
+ * {@code ban} returns TRUE because global {@code *} is checked first and wins.
+ * To deny specific permissions, avoid using global {@code *} and use more specific
+ * grants like {@code admin.*} combined with negations.
  */
 public final class WildcardMatcher {
 
@@ -89,7 +94,7 @@ public final class WildcardMatcher {
 
         String lowerPerm = permission.toLowerCase();
 
-        // Build stripped versions upfront
+        // Build stripped versions upfront (e.g., com.plugin.cmd -> plugin.cmd)
         java.util.List<String> strippedVersions = new java.util.ArrayList<>();
         for (String prefix : COMMON_PREFIXES) {
             if (lowerPerm.startsWith(prefix)) {
@@ -97,100 +102,101 @@ public final class WildcardMatcher {
             }
         }
 
-        // === PHASE 1: CHECK ALL NEGATIONS ===
+        // === HYTALE RESOLUTION ORDER ===
 
-        // 1a. Exact negation (original)
+        // 1. Global wildcard (*) - checked FIRST, grants everything
+        if (values.getOrDefault("*", false)) {
+            return TriState.TRUE;
+        }
+
+        // 2. Global negation (-*) - denies everything
+        if (values.getOrDefault("-*", false)) {
+            return TriState.FALSE;
+        }
+
+        // 3. Exact permissions (grant first, then deny)
+        // 3a. Exact grant (original)
+        if (values.containsKey(lowerPerm)) {
+            return values.get(lowerPerm) ? TriState.TRUE : TriState.FALSE;
+        }
+        // 3b. Exact negation (original)
         if (values.containsKey("-" + lowerPerm)) {
-                        return values.get("-" + lowerPerm) ? TriState.FALSE : TriState.TRUE;
+            return values.get("-" + lowerPerm) ? TriState.FALSE : TriState.TRUE;
         }
-
-        // 1b. Exact negation (stripped versions)
+        // 3c. Exact grant/deny (stripped versions)
         for (String stripped : strippedVersions) {
+            if (values.containsKey(stripped)) {
+                return values.get(stripped) ? TriState.TRUE : TriState.FALSE;
+            }
             if (values.containsKey("-" + stripped)) {
-                                return values.get("-" + stripped) ? TriState.FALSE : TriState.TRUE;
+                return values.get("-" + stripped) ? TriState.FALSE : TriState.TRUE;
             }
         }
 
-        // 2a. Wildcard negations (original) - most specific to least
+        // 4. Prefix wildcards (shortest prefix first: "a.*" before "a.b.*")
         String[] parts = lowerPerm.split("\\.");
-        for (int i = parts.length - 1; i >= 0; i--) {
-            String wildcard = buildWildcard(parts, i);
-            String negated = "-" + wildcard;
-            if (values.containsKey(negated)) {
-                                return values.get(negated) ? TriState.FALSE : TriState.TRUE;
+        for (int prefixLen = 1; prefixLen < parts.length; prefixLen++) {
+            String prefix = buildWildcardFromLength(parts, prefixLen);
+
+            // Grant first, then deny at each level
+            if (values.getOrDefault(prefix, false)) {
+                return TriState.TRUE;
             }
-            // Also check if the wildcard itself has value=false (negation stored differently)
-            if (values.containsKey(wildcard) && !values.get(wildcard)) {
-                                return TriState.FALSE;
+            if (values.getOrDefault("-" + prefix, false)) {
+                return TriState.FALSE;
+            }
+            // Also check value=false format (negation stored as wildcard=false)
+            if (values.containsKey(prefix) && !values.get(prefix)) {
+                return TriState.FALSE;
             }
         }
 
-        // 2b. Wildcard negations (stripped versions)
+        // 4b. Prefix wildcards (stripped versions, shortest first)
         for (String stripped : strippedVersions) {
             String[] strippedParts = stripped.split("\\.");
-            for (int i = strippedParts.length - 1; i >= 0; i--) {
-                String wildcard = buildWildcard(strippedParts, i);
-                String negated = "-" + wildcard;
-                if (values.containsKey(negated)) {
-                                        return values.get(negated) ? TriState.FALSE : TriState.TRUE;
+            for (int prefixLen = 1; prefixLen < strippedParts.length; prefixLen++) {
+                String prefix = buildWildcardFromLength(strippedParts, prefixLen);
+
+                if (values.getOrDefault(prefix, false)) {
+                    return TriState.TRUE;
                 }
-                // Check value=false format
-                if (values.containsKey(wildcard) && !values.get(wildcard)) {
-                                        return TriState.FALSE;
+                if (values.getOrDefault("-" + prefix, false)) {
+                    return TriState.FALSE;
                 }
-            }
-        }
-
-        // 3. Universal negation
-        if (values.containsKey("-*")) {
-                        return values.get("-*") ? TriState.FALSE : TriState.TRUE;
-        }
-
-        // === PHASE 2: CHECK ALL GRANTS ===
-
-        // 4a. Exact grant (original)
-        if (values.containsKey(lowerPerm) && values.get(lowerPerm)) {
-                        return TriState.TRUE;
-        }
-
-        // 4b. Exact grant (stripped)
-        for (String stripped : strippedVersions) {
-            if (values.containsKey(stripped) && values.get(stripped)) {
-                                return TriState.TRUE;
-            }
-        }
-
-        // 5a. Wildcard grants (original)
-        for (int i = parts.length - 1; i >= 0; i--) {
-            String wildcard = buildWildcard(parts, i);
-            if (values.containsKey(wildcard) && values.get(wildcard)) {
-                                return TriState.TRUE;
-            }
-        }
-
-        // 5b. Wildcard grants (stripped)
-        for (String stripped : strippedVersions) {
-            String[] strippedParts = stripped.split("\\.");
-            for (int i = strippedParts.length - 1; i >= 0; i--) {
-                String wildcard = buildWildcard(strippedParts, i);
-                if (values.containsKey(wildcard) && values.get(wildcard)) {
-                                        return TriState.TRUE;
+                if (values.containsKey(prefix) && !values.get(prefix)) {
+                    return TriState.FALSE;
                 }
             }
-        }
-
-        // 6. Universal grant
-        if (values.containsKey("*") && values.get("*")) {
-                        return TriState.TRUE;
         }
 
         return TriState.UNDEFINED;
+    }
+
+    /**
+     * Builds a wildcard pattern with a specific prefix length.
+     * For parts ["a", "b", "c"] with prefixLen=2, returns "a.b.*"
+     */
+    private static String buildWildcardFromLength(String[] parts, int prefixLen) {
+        StringBuilder sb = new StringBuilder();
+        for (int j = 0; j < prefixLen; j++) {
+            sb.append(parts[j]).append(".");
+        }
+        sb.append("*");
+        return sb.toString();
     }
 
     
 
     /**
      * Checks a permission with detailed match information for tracing.
+     * <p>
+     * Follows Hytale's resolution order:
+     * <ol>
+     *   <li>Global wildcard (*) - checked FIRST</li>
+     *   <li>Global negation (-*)</li>
+     *   <li>Exact permissions (grant before deny)</li>
+     *   <li>Prefix wildcards (shortest prefix first)</li>
+     * </ol>
      *
      * @param permission the permission to check
      * @param values     map of permission patterns to their values
@@ -207,7 +213,28 @@ public final class WildcardMatcher {
 
         String lowerPerm = permission.toLowerCase();
 
-        // 1. Check exact negation first
+        // === HYTALE RESOLUTION ORDER ===
+
+        // 1. Global wildcard (*) - checked FIRST
+        if (values.getOrDefault("*", false)) {
+            return new MatchResult(TriState.TRUE, "*", MatchType.UNIVERSAL);
+        }
+
+        // 2. Global negation (-*)
+        if (values.getOrDefault("-*", false)) {
+            return new MatchResult(TriState.FALSE, "-*", MatchType.UNIVERSAL_NEGATION);
+        }
+
+        // 3. Exact permissions (grant first, then deny)
+        if (values.containsKey(lowerPerm)) {
+            boolean val = values.get(lowerPerm);
+            return new MatchResult(
+                    val ? TriState.TRUE : TriState.FALSE,
+                    lowerPerm,
+                    MatchType.EXACT
+            );
+        }
+
         String negated = "-" + lowerPerm;
         if (values.containsKey(negated)) {
             boolean val = values.get(negated);
@@ -218,42 +245,25 @@ public final class WildcardMatcher {
             );
         }
 
-        // 2. Check exact match
-        if (values.containsKey(lowerPerm)) {
-            boolean val = values.get(lowerPerm);
-            return new MatchResult(
-                    val ? TriState.TRUE : TriState.FALSE,
-                    lowerPerm,
-                    MatchType.EXACT
-            );
-        }
-
-        // 3. Check wildcards
+        // 4. Prefix wildcards (shortest prefix first)
         String[] parts = lowerPerm.split("\\.");
+        for (int prefixLen = 1; prefixLen < parts.length; prefixLen++) {
+            String wildcard = buildWildcardFromLength(parts, prefixLen);
 
-        for (int i = parts.length - 1; i >= 0; i--) {
-            String wildcard = buildWildcard(parts, i);
-            boolean isUniversal = wildcard.equals("*");
-
-            // Check negated wildcard
-            String negatedWildcard = "-" + wildcard;
-            if (values.containsKey(negatedWildcard)) {
-                boolean val = values.get(negatedWildcard);
-                return new MatchResult(
-                        val ? TriState.FALSE : TriState.TRUE,
-                        negatedWildcard,
-                        isUniversal ? MatchType.UNIVERSAL_NEGATION : MatchType.WILDCARD_NEGATION
-                );
+            // Grant first at each level
+            if (values.getOrDefault(wildcard, false)) {
+                return new MatchResult(TriState.TRUE, wildcard, MatchType.WILDCARD);
             }
 
-            // Check positive wildcard
-            if (values.containsKey(wildcard)) {
-                boolean val = values.get(wildcard);
-                return new MatchResult(
-                        val ? TriState.TRUE : TriState.FALSE,
-                        wildcard,
-                        isUniversal ? MatchType.UNIVERSAL : MatchType.WILDCARD
-                );
+            // Then deny
+            String negatedWildcard = "-" + wildcard;
+            if (values.getOrDefault(negatedWildcard, false)) {
+                return new MatchResult(TriState.FALSE, negatedWildcard, MatchType.WILDCARD_NEGATION);
+            }
+
+            // Also check value=false format
+            if (values.containsKey(wildcard) && !values.get(wildcard)) {
+                return new MatchResult(TriState.FALSE, wildcard, MatchType.WILDCARD);
             }
         }
 
